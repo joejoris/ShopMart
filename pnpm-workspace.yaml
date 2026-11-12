@@ -1,8 +1,17 @@
 packages:
   - "apps/*"
   - "packages/*"
+
 allowBuilds:
   '@nestjs/core': set this to true or false
-  '@prisma/client': set this to true or false
-  '@prisma/engines': set this to true or false
-  prisma: set this to true or false
+
+hoistPattern:
+  - "*"
+  - "!@types/react"
+
+overrides:
+  expo>@types/react: ~18.3.12
+  expo-router>@types/react: ~18.3.12
+  '@react-navigation/bottom-tabs>@types/react': ~18.3.12
+  '@react-navigation/native>@types/react': ~18.3.12
+  '@react-navigation/native-stack>@types/react': ~18.3.12

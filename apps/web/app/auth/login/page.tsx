@@ -36,7 +36,7 @@ function LoginInner() {
     <div className="mx-auto max-w-md py-16">
       <div className="card p-6">
         <h1 className="text-2xl font-bold">Sign in</h1>
-        <p className="mt-1 text-sm text-gray-500">Use <code>demo@example.com</code> / <code>demo1234</code> to try the demo.</p>
+        <p className="mt-1 text-sm text-gray-500">Use your own account to sign in.</p>
         <form onSubmit={submit} className="mt-5 space-y-3">
           <input className="input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <input className="input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />

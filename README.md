@@ -33,10 +33,17 @@ cd apps/mobile && corepack pnpm start
 The database schema is applied automatically when the API boots — no migration step needed.
 Set `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` and `extra.apiUrl` in `apps/mobile/app.json` if the API is not on `localhost:4000`.
 
-## Demo accounts
+## Accounts
 
-- **Admin**: `admin@example.com` / `admin1234` — admin dashboard at `/admin`
-- **Demo customer**: `demo@example.com` / `demo1234`
+No default accounts exist — the store starts from an empty users table. Register a new account at `/auth/register`. The first registrant is a **customer**; the database currently has **no admin**.
+
+To promote a user to admin, run:
+
+```bash
+node -e "const {DatabaseSync}=require('node:sqlite'); new DatabaseSync('C:/projects/ecommerce/apps/api/dev.db').exec(\"UPDATE users SET role='admin' WHERE email='you@example.com'\")"
+```
+
+Admin-only routes (`/admin`, `GET /admin/*`) reject customers with 403 and anonymous callers with 401.
 
 ## Demo coupons
 

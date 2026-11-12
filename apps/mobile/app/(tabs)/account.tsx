@@ -7,8 +7,8 @@ export default function AccountScreen() {
   const router = useRouter();
   const [me, setMe] = useState<{ name: string; email: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState("demo@example.com");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -57,7 +57,7 @@ export default function AccountScreen() {
   return (
     <View style={[styles.container, { padding: 16 }]}>
       <Text style={styles.heading}>Sign in</Text>
-      <Text style={styles.hint}>Use demo@example.com / demo1234</Text>
+      <Text style={styles.hint}>Use your own account to sign in.</Text>
       <TextInput style={styles.input} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} placeholder="Email" />
       <TextInput style={styles.input} secureTextEntry value={password} onChangeText={setPassword} placeholder="Password" />
       <Pressable style={styles.btn} onPress={login}><Text style={styles.btnText}>Sign in</Text></Pressable>

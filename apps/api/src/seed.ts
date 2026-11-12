@@ -1,4 +1,3 @@
-import * as bcrypt from "bcryptjs";
 import { db, newId } from "./db/database";
 
 const img = (id: string) => `https://images.unsplash.com/photo-${id}?w=800&q=80&auto=format&fit=crop`;
@@ -31,27 +30,7 @@ const products: Array<{
 ];
 
 function main() {
-  console.log("Seeding…");
-
-  const upsertUser = (email: string, name: string, password: string, role: string) => {
-    const existing = db.prepare(`SELECT id FROM users WHERE email = ?`).get(email) as any;
-    if (existing) return existing.id;
-    const id = newId();
-    db.prepare(`INSERT INTO users (id, email, password_hash, name, role) VALUES (?, ?, ?, ?, ?)`)
-      .run(id, email, bcrypt.hashSync(password, 10), name, role);
-    return id;
-  };
-
-  const adminId = upsertUser("admin@example.com", "Store Admin", "admin1234", "admin");
-  const customerId = upsertUser("demo@example.com", "Demo Customer", "demo1234", "customer");
-
-  const hasAddress = db.prepare(`SELECT id FROM addresses WHERE user_id = ?`).get(customerId);
-  if (!hasAddress) {
-    db.prepare(
-      `INSERT INTO addresses (id, user_id, full_name, line1, city, state, postal_code, country, phone, is_default)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
-    ).run(newId(), customerId, "Demo Customer", "123 Market Street", "San Francisco", "CA", "94105", "US", "+1 555 0100");
-  }
+  console.log("Seeding catalog, categories and coupons…");
 
   const catId = new Map<string, string>();
   for (const c of categories) {
@@ -93,8 +72,7 @@ function main() {
     }
   }
 
-  console.log("Seed complete. Admin: admin@example.com / admin1234 — Demo: demo@example.com / demo1234");
-  console.log(`(admin user id: ${adminId}, demo customer id: ${customerId})`);
+  console.log("Seed complete. Register an account at /auth/register; promote it to admin via README instructions.");
   db.close();
 }
 
