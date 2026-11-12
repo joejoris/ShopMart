@@ -17,7 +17,8 @@ const withImages = (p: any) => {
 export class UsersController {
   @Get("me")
   me(@CurrentUser() user: any) {
-    return camel(queryOne(`SELECT id, email, name, role, created_at FROM users WHERE id = ?`, [user.id]));
+    const row = queryOne(`SELECT id, email, name, role, created_at, email_verified_at FROM users WHERE id = ?`, [user.id]);
+    return { ...camel(row), emailVerified: !!row?.email_verified_at };
   }
 
   @Put("me")

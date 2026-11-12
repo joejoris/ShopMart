@@ -156,9 +156,38 @@ CREATE TABLE IF NOT EXISTS inventory_logs (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_inventory_product ON inventory_logs(product_id);
+
+CREATE TABLE IF NOT EXISTS email_outbox (
+  id TEXT PRIMARY KEY,
+  to_email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body_html TEXT NOT NULL,
+  body_text TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'sent',
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_email_outbox_created ON email_outbox(created_at);
+
+CREATE TABLE IF NOT EXISTS email_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_email_tokens_user ON email_tokens(user_id);
 `;
 
 db.exec(SCHEMA);
+
+// Idempotent migration for existing dev databases.
+const userCols = db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>;
+if (!userCols.some((c) => c.name === "email_verified_at")) {
+  db.exec(`ALTER TABLE users ADD COLUMN email_verified_at TEXT`);
+}
 
 let seq = 0;
 export const newId = () => `${Date.now().toString(36)}${(seq++).toString(36)}${Math.random().toString(36).slice(2, 8)}`;

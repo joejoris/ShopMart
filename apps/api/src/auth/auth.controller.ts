@@ -20,6 +20,19 @@ class RefreshDto {
   @IsString() refreshToken: string;
 }
 
+class ForgotPasswordDto {
+  @IsEmail() email: string;
+}
+
+class ResetPasswordDto {
+  @IsString() token: string;
+  @MinLength(8) password: string;
+}
+
+class VerifyEmailDto {
+  @IsString() token: string;
+}
+
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
@@ -45,10 +58,35 @@ export class AuthController {
     return this.auth.refresh(dto.refreshToken);
   }
 
+  @Public()
+  @Post("forgot-password")
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.forgotPassword(dto.email);
+  }
+
+  @Public()
+  @Post("reset-password")
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto.token, dto.password);
+  }
+
+  @Public()
+  @Post("verify-email")
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.auth.verifyEmail(dto.token);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("resend-verification")
+  resendVerification(@CurrentUser() user: any) {
+    return this.auth.resendVerification(user.id);
+  }
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get("me")
   me(@CurrentUser() user: any) {
-    return user;
+    return this.auth.me(user.id);
   }
 }

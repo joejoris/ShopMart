@@ -43,6 +43,14 @@ Set `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` and `extra.apiUrl` in `apps/m
 - `WELCOME10` — 10% off orders ≥ $20
 - `SAVE25` — $25 off orders ≥ $100
 
+## Features
+
+- **Email delivery** — all transactional email (order confirmation, shipped/delivered/cancelled, verification, password reset) flows through an outbox persisted in SQLite. Without `SMTP_URL`, emails are logged to the API console and stored in `email_outbox`; admins can inspect them at `/admin/emails` (auto-refreshing). Set `SMTP_URL` + `MAIL_FROM` to send real mail.
+- **Email verification & password reset** — register / `POST /auth/resend-verification` send a verification link (24h). `Forgot password` sends a 1h reset link (`/auth/forgot-password` → `/auth/reset`). Tokens are single-use and stored hashed in `email_tokens`.
+- **PDF invoice** — `GET /orders/:id/invoice` streams a PDF invoice (owner or admin), downloadable from the order page.
+- **Stripe payments** — server-side PaymentIntents + webhook wired and tested in test mode. The checkout uses a simulated `mock-pay` by default (no publishable key needed). To enable real card payments in the browser, set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in `apps/web/.env.local` to your `pk_test_…` key — the checkout then loads Stripe.js with a Payment Element, and confirm → `/payments/orders/:id/confirm`.
+- **Admin dashboard** — revenue/orders/customers KPIs, product & coupon management, order status pipeline (delivered/cancelled are terminal, stock restored on cancel), low-stock list, email outbox.
+
 ## Architecture notes
 
 - **Database**: embedded SQLite through Node's built-in `node:sqlite` module (no native builds, no engine downloads). The data layer lives in `apps/api/src/db/database.ts` (schema + typed helpers).

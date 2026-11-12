@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, Cart, formatPrice } from "@/lib/api";
 import { useAuth } from "@/lib/store";
+
+const STRIPE_PK = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -16,6 +18,40 @@ export default function CheckoutPage() {
   const [shippingMethod, setShippingMethod] = useState<"standard" | "express">("standard");
   const [newAddr, setNewAddr] = useState({ fullName: "", line1: "", city: "", state: "", postalCode: "", country: "US" });
   const [showNewAddr, setShowNewAddr] = useState(false);
+  const paymentRef = useRef<HTMLDivElement>(null);
+  const stripeRef = useRef<any>(null);
+  const elementsRef = useRef<any>(null);
+  const [stripeReady, setStripeReady] = useState(false);
+  const [stripeError, setStripeError] = useState("");
+
+  useEffect(() => {
+    if (!STRIPE_PK) return;
+    let cancelled = false;
+    const init = () => {
+      if (cancelled || elementsRef.current || !paymentRef.current) return;
+      const stripe = (window as any).Stripe(STRIPE_PK);
+      const elements = stripe.elements();
+      const paymentElement = elements.create("payment");
+      paymentElement.mount(paymentRef.current);
+      stripeRef.current = stripe;
+      elementsRef.current = elements;
+      setStripeReady(true);
+    };
+    const src = "https://js.stripe.com/v3";
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      if ((window as any).Stripe) init();
+      else existing.addEventListener("load", init);
+    } else {
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.addEventListener("load", init);
+      s.addEventListener("error", () => setStripeError("Could not load Stripe.js"));
+      document.head.appendChild(s);
+    }
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => { if (!user) router.replace("/auth/login?next=/checkout"); }, [user, router]);
 
@@ -58,7 +94,20 @@ export default function CheckoutPage() {
   const placeOrder = useMutation({
     mutationFn: async () => {
       const order = await api.post<{ id: string }>("/orders", { addressId, couponCode: coupon.trim() || null, shippingMethod });
-      await api.post(`/payments/orders/${order.id}/mock-pay`);
+      if (STRIPE_PK && stripeRef.current && elementsRef.current) {
+        const intent = await api.post<{ clientSecret: string | null; devMode?: boolean }>(`/payments/orders/${order.id}/create-intent`);
+        if (intent.clientSecret) {
+          const result = await stripeRef.current.confirmPayment({
+            elements: elementsRef.current,
+            clientSecret: intent.clientSecret,
+            redirect: "if_required",
+          });
+          if (result.error) throw new Error(result.error.message ?? "Payment failed");
+        }
+        await api.post(`/payments/orders/${order.id}/confirm`);
+      } else {
+        await api.post(`/payments/orders/${order.id}/mock-pay`);
+      }
       return order;
     },
     onSuccess: (order) => {
@@ -146,11 +195,19 @@ export default function CheckoutPage() {
           <div className="flex justify-between"><span>Shipping</span><span>{shippingCents === 0 ? "Free" : formatPrice(shippingCents)}</span></div>
           <div className="flex justify-between"><span>Tax (8%)</span><span>{formatPrice(taxCents)}</span></div>
           <div className="flex justify-between border-t pt-2 text-base font-bold"><span>Total</span><span>{formatPrice(totalCents)}</span></div>
-          <button className="btn w-full py-3 text-base" disabled={!addressId || placeOrder.isPending} onClick={() => placeOrder.mutate()}>
-            {placeOrder.isPending ? "Placing order…" : `Pay ${formatPrice(totalCents)}`}
+          {STRIPE_PK ? (
+            <div className="space-y-1 border-t pt-2">
+              <p className="text-xs font-semibold uppercase text-gray-500">Payment</p>
+              <div ref={paymentRef} className="rounded-md border border-gray-200 p-3" />
+              {!stripeReady && !stripeError && <p className="text-xs text-gray-400">Loading secure payment form…</p>}
+              {stripeError && <p className="text-xs text-red-600">{stripeError}</p>}
+            </div>
+          ) : null}
+          <button className="btn w-full py-3 text-base" disabled={!addressId || placeOrder.isPending || (Boolean(STRIPE_PK) && !stripeReady)} onClick={() => placeOrder.mutate()}>
+            {placeOrder.isPending ? "Placing order…" : STRIPE_PK ? `Pay ${formatPrice(totalCents)}` : `Pay ${formatPrice(totalCents)} (demo)`}
           </button>
           {placeOrder.isError && <p className="text-xs text-red-600">{(placeOrder.error as Error).message}</p>}
-          <p className="text-xs text-gray-400">Demo checkout — payment is simulated via the mock-pay endpoint (no real charge). Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY + Stripe.js to enable Stripe Elements.</p>
+          {!STRIPE_PK && <p className="text-xs text-gray-400">Demo checkout: payment is simulated via the mock-pay endpoint (no real charge). Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in apps/web/.env.local with a pk_test_… key to enable real Stripe test payments.</p>}
         </aside>
       </div>
     </div>

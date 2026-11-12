@@ -43,7 +43,8 @@ function LoginInner() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button className="btn w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         </form>
-        <p className="mt-4 text-center text-sm text-gray-500">No account? <Link href="/auth/register" className="text-brand-700 hover:underline">Register</Link></p>
+        <p className="mt-3 text-center text-sm"><Link href="/auth/forgot-password" className="text-brand-700 hover:underline">Forgot password?</Link></p>
+        <p className="mt-1 text-center text-sm text-gray-500">No account? <Link href="/auth/register" className="text-brand-700 hover:underline">Register</Link></p>
       </div>
     </div>
   );

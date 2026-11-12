@@ -2,7 +2,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, Order, formatPrice } from "@/lib/api";
+import { api, downloadFile, Order, formatPrice } from "@/lib/api";
 import { useAuth } from "@/lib/store";
 
 const steps = ["pending", "paid", "shipped", "delivered"];
@@ -34,9 +34,14 @@ export default function OrderDetailPage() {
     <div className="py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Order {order.number}</h1>
-        {["pending", "paid"].includes(order.status) && (
-          <button className="btn-outline text-red-600" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel order</button>
-        )}
+        <div className="flex gap-2">
+          <button className="btn-outline" onClick={() => downloadFile(`/orders/${id}/invoice`, `${order.number}-invoice.pdf`).catch((e) => alert(e.message))}>
+            ⬇ Invoice (PDF)
+          </button>
+          {["pending", "paid"].includes(order.status) && (
+            <button className="btn-outline text-red-600" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel order</button>
+          )}
+        </div>
       </div>
 
       {order.status !== "cancelled" ? (

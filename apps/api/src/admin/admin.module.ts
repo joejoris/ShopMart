@@ -58,6 +58,13 @@ export class AdminController {
     );
   }
 
+  @Get("emails")
+  emails() {
+    return camelAll(
+      queryAll(`SELECT id, to_email, subject, status, error, created_at FROM email_outbox ORDER BY created_at DESC LIMIT 100`)
+    );
+  }
+
   @Get("users")
   users() {
     return camelAll(

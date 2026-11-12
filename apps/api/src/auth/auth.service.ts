@@ -2,13 +2,13 @@ import { Injectable, UnauthorizedException, ConflictException } from "@nestjs/co
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { queryOne, execute, newId } from "../db/database";
-import { camel } from "../db/map";
+import { EmailService } from "../email/email.service";
 
-type UserRow = { id: string; email: string; password_hash: string; name: string; role: string };
+type UserRow = { id: string; email: string; password_hash: string; name: string; role: string; email_verified_at?: string | null };
 
 @Injectable()
 export class AuthService {
-  constructor(private jwt: JwtService) {}
+  constructor(private jwt: JwtService, private email: EmailService) {}
 
   async register(input: { name: string; email: string; password: string }) {
     const existing = queryOne(`SELECT id FROM users WHERE email = ?`, [input.email]);
@@ -20,6 +20,10 @@ export class AuthService {
       [id, input.email, passwordHash, input.name]
     );
     const user = queryOne<UserRow>(`SELECT * FROM users WHERE id = ?`, [id])!;
+    // Fire-and-forget verification email (console sender logs it in dev).
+    this.email.sendVerifyEmail(user.email, user.name, this.email.createToken(user.id, "verify")).catch((e) =>
+      console.error("verify email failed", e)
+    );
     return this.issueTokens(user);
   }
 
@@ -36,6 +40,18 @@ export class AuthService {
     return this.issueTokens(full);
   }
 
+  async me(userId: string) {
+    const user = queryOne<UserRow>(`SELECT * FROM users WHERE id = ?`, [userId]);
+    if (!user) throw new UnauthorizedException();
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      emailVerified: !!user.email_verified_at,
+    };
+  }
+
   async refresh(refreshToken: string) {
     try {
       const payload = await this.jwt.verifyAsync(refreshToken, {
@@ -47,6 +63,42 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException("Invalid refresh token");
     }
+  }
+
+  async resendVerification(userId: string) {
+    const user = queryOne<UserRow>(`SELECT * FROM users WHERE id = ?`, [userId]);
+    if (!user) throw new UnauthorizedException();
+    if (user.email_verified_at) return { ok: true, alreadyVerified: true };
+    const token = this.email.createToken(user.id, "verify");
+    this.email.sendVerifyEmail(user.email, user.name, token).catch((e) => console.error("resend verify email failed", e));
+    return { ok: true };
+  }
+
+  async forgotPassword(email: string) {
+    const user = queryOne<UserRow>(`SELECT * FROM users WHERE email = ?`, [email]);
+    // Always return success to avoid leaking which emails exist.
+    if (user) {
+      const token = this.email.createToken(user.id, "reset");
+      this.email.sendPasswordResetEmail(user.email, user.name, token).catch((e) =>
+        console.error("reset email failed", e)
+      );
+    }
+    return { ok: true };
+  }
+
+  async resetPassword(token: string, password: string) {
+    const consumed = this.email.consumeToken(token, "reset");
+    if (!consumed) return { ok: false, message: "Invalid or expired reset token" };
+    const passwordHash = await bcrypt.hash(password, 10);
+    execute(`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`, [passwordHash, consumed.userId]);
+    return { ok: true };
+  }
+
+  async verifyEmail(token: string) {
+    const consumed = this.email.consumeToken(token, "verify");
+    if (!consumed) return { ok: false, message: "Invalid or expired verification token" };
+    execute(`UPDATE users SET email_verified_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`, [consumed.userId]);
+    return { ok: true };
   }
 
   private async issueTokens(user: UserRow) {
@@ -62,7 +114,13 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        emailVerified: !!user.email_verified_at,
+      },
     };
   }
 }

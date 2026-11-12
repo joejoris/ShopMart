@@ -103,5 +103,28 @@ export type Order = {
   items: Array<{ id: string; title: string; priceCents: number; quantity: number }>;
 };
 
+/** Fetch an authenticated file (e.g. PDF invoice) and trigger a browser download. */
+export async function downloadFile(path: string, filename: string) {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { headers });
+  if (!res.ok) {
+    let message = `Download failed (${res.status})`;
+    try {
+      const body = await res.json();
+      message = body.message ?? message;
+    } catch {}
+    throw new ApiError(res.status, message);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export const formatPrice = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
