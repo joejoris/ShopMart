@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "ShopMart",
+    "slug": "shopmart",
+    "version": "1.0.0",
+    "scheme": "shopmart",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#ffffff",
+    "ios": { "supportsTablet": true },
+    "android": { "adaptiveIcon": { "backgroundColor": "#1e3a8a" } },
+    "plugins": ["expo-router"],
+    "extra": {
+      "apiUrl": "http://localhost:4000/api/v1"
+    }
+  }
+}
