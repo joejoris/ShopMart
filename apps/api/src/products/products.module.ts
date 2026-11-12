@@ -47,8 +47,8 @@ export class ProductsController {
     const where: string[] = [`p.status = 'active'`];
     const params: any[] = [];
     if (q) {
-      where.push(`(p.title LIKE ? OR p.description LIKE ? OR p.sku LIKE ?)`);
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+      where.push(`(p.title LIKE ? OR p.description LIKE ? OR p.sku LIKE ? OR p.slug LIKE ?)`);
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
     if (category) {
       where.push(`c.slug = ?`);

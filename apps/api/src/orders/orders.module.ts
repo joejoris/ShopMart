@@ -197,8 +197,25 @@ export class OrdersController {
   adminUpdateStatus(@Param("id") id: string, @Body() body: { status: string }) {
     const allowed = ["pending", "paid", "shipped", "delivered", "cancelled"];
     if (!allowed.includes(body.status)) throw new BadRequestException("Invalid status");
-    execute(`UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?`, [body.status, id]);
-    return camel(queryOne(`SELECT * FROM orders WHERE id = ?`, [id]));
+
+    const order = queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
+    if (!order) throw new NotFoundException("Order not found");
+    if (order.status === "delivered" || order.status === "cancelled") {
+      throw new BadRequestException(`Order is already ${order.status} and cannot be changed`);
+    }
+
+    return transaction(() => {
+      // Admin-initiated cancel restores stock, symmetric with customer cancel.
+      if (body.status === "cancelled") {
+        const items = queryAll<any>(`SELECT * FROM order_items WHERE order_id = ?`, [id]);
+        for (const item of items) {
+          execute(`UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?`, [item.quantity, item.product_id]);
+          execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'cancel')`, [newId(), item.product_id, item.quantity]);
+        }
+      }
+      execute(`UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?`, [body.status, id]);
+      return camel(queryOne(`SELECT * FROM orders WHERE id = ?`, [id]));
+    });
   }
 }
 
