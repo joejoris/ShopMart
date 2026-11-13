@@ -1,13 +1,13 @@
 # ShopMart — Full-Stack Ecommerce
 
-Monorepo with the web storefront, admin dashboard, REST API and mobile app.
+Monorepo with the web storefront (React Router v7 SSR + Vite), admin dashboard, REST API and mobile app.
 
 ## Apps & packages
 
 | Path | Description |
 |---|---|
 | `apps/api` | NestJS REST API + embedded SQLite via Node's built-in `node:sqlite` (zero-dependency data layer, schema auto-applied on boot) |
-| `apps/web` | Next.js 15 (App Router, Tailwind) — storefront + admin at `/admin` |
+| `apps/web` | React Router v7 SSR + Vite + Tailwind — storefront + admin at `/admin` |
 | `apps/mobile` | Expo / React Native app (`expo start`) |
 | `packages/shared` | Shared Zod schemas, types and constants |
 

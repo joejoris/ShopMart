@@ -3,7 +3,8 @@ packages:
   - "packages/*"
 
 allowBuilds:
-  '@nestjs/core': set this to true or false
+  '@nestjs/core': true
+  esbuild: true
 
 hoistPattern:
   - "*"
