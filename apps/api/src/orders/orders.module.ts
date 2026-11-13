@@ -23,6 +23,29 @@ import { EmailService } from "../email/email.service";
 import { FREE_SHIPPING_THRESHOLD_CENTS, SHIPPING_FLAT_CENTS, TAX_RATE } from "@ecommerce/shared";
 
 const EXPRESS_SHIPPING_CENTS = 999;
+const LOW_STOCK_THRESHOLD = 5;
+
+// Notify the admin when a product crosses the reorder threshold.
+async function notifyAdminLowStock(
+  email: EmailService,
+  watch: Array<{ id: string; title: string; before: number; after: number }>
+) {
+  if (watch.length === 0) return;
+  const admin = queryOne<{ email: string; name: string }>(`SELECT email, name FROM users WHERE role = 'admin' ORDER BY created_at ASC LIMIT 1`);
+  if (!admin) return; // no admin account exists yet — nothing to notify
+  const text = `Low-stock alert for ${watch.length} product(s):\n${watch
+    .map((w) => `- ${w.title}: ${w.before} → ${w.after}${w.after === 0 ? " (SOLD OUT)" : " (LOW STOCK)"}`)
+    .join("\n")}\n\nRestock soon to avoid missed sales.`;
+  const html = `<p>Low-stock alert for ${watch.length} product(s):</p><ul>${watch
+    .map((w) => `<li><strong>${w.title}</strong>: ${w.before} → ${w.after}${w.after === 0 ? " <em>(sold out)</em>" : " <em>(low stock)</em>"}</li>`)
+    .join("")}</ul><p>Restock soon to avoid missed sales.</p>`;
+  await email.send(
+    admin.email,
+    `Low stock: ${watch.length} product(s) need restocking`,
+    `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:24px;background:#f3f4f6"><div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden"><div style="background:#1e3a8a;padding:18px 24px;color:#fff;font-size:20px;font-weight:800">ShopMart</div><div style="padding:24px">${html}</div></div></body></html>`,
+    text
+  );
+}
 
 export function computeTotals(
   subtotalCents: number,
@@ -100,6 +123,8 @@ export class OrdersController {
     const shippingMethod = body.shippingMethod ?? "standard";
     const { discountCents, shippingCents, taxCents, totalCents } = computeTotals(subtotalCents, coupon, shippingMethod);
 
+    const stockWatch: Array<{ id: string; title: string; before: number; after: number }> = [];
+
     const order = transaction(() => {
       const orderId = newId();
       const number = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -115,6 +140,11 @@ export class OrdersController {
         );
         execute(`UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ?`, [item.quantity, item.product_id]);
         execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'order')`, [newId(), item.product_id, -item.quantity]);
+        const after = item.stock - item.quantity;
+        const crossed =
+          (item.stock > LOW_STOCK_THRESHOLD && after <= LOW_STOCK_THRESHOLD) ||
+          (item.stock > 0 && after === 0);
+        if (crossed) stockWatch.push({ id: item.product_id, title: item.title, before: item.stock, after });
       }
       if (coupon) execute(`UPDATE coupons SET used_count = used_count + 1 WHERE id = ?`, [coupon.id]);
       execute(`DELETE FROM cart_items WHERE cart_id = ?`, [cart!.id]);
@@ -142,6 +172,9 @@ export class OrdersController {
         items: order.items.map((i: any) => ({ title: i.title, quantity: i.quantity, priceCents: i.priceCents })),
       })
       .catch((e) => console.error("order confirmation email failed", e));
+
+    // Alert the admin about stock crossings in the outbox (not thrown — email failure must not roll back the order).
+    notifyAdminLowStock(this.email, stockWatch).catch((e) => console.error("low stock alert failed", e));
     return order;
   }
 

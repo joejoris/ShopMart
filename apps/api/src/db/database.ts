@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS products (
   status TEXT NOT NULL DEFAULT 'draft',
   images TEXT NOT NULL DEFAULT '[]',
   category_id TEXT NOT NULL REFERENCES categories(id),
+  featured INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS carts (
   id TEXT PRIMARY KEY,
   user_id TEXT UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   guest_id TEXT UNIQUE,
+  last_reminder_sent_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -188,6 +190,16 @@ const userCols = db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: s
 if (!userCols.some((c) => c.name === "email_verified_at")) {
   db.exec(`ALTER TABLE users ADD COLUMN email_verified_at TEXT`);
 }
+const prodCols = db.prepare(`PRAGMA table_info(products)`).all() as Array<{ name: string }>;
+if (!prodCols.some((c) => c.name === "featured")) {
+  db.exec(`ALTER TABLE products ADD COLUMN featured INTEGER NOT NULL DEFAULT 0`);
+}
+const cartCols = db.prepare(`PRAGMA table_info(carts)`).all() as Array<{ name: string }>;
+if (!cartCols.some((c) => c.name === "last_reminder_sent_at")) {
+  db.exec(`ALTER TABLE carts ADD COLUMN last_reminder_sent_at TEXT`);
+}
+// Featured index must be created AFTER the column exists in both fresh and existing DBs.
+db.exec(`CREATE INDEX IF NOT EXISTS idx_products_featured ON products(featured)`);
 
 let seq = 0;
 export const newId = () => `${Date.now().toString(36)}${(seq++).toString(36)}${Math.random().toString(36).slice(2, 8)}`;

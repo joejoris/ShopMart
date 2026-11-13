@@ -6,7 +6,7 @@ export function meta() {
   return [{ title: "Admin — Products" }];
 }
 
-const emptyForm = { title: "", slug: "", description: "", priceCents: 0, sku: "", stock: 0, categoryId: "", images: "", status: "active" };
+const emptyForm = { title: "", slug: "", description: "", priceCents: 0, sku: "", stock: 0, categoryId: "", images: "", status: "active", featured: false };
 
 export default function AdminProducts() {
   const { user } = useAuth();
@@ -32,7 +32,7 @@ export default function AdminProducts() {
     setForm({
       title: p.title, slug: p.slug, description: p.description,
       priceCents: p.priceCents, sku: p.sku, stock: p.stock,
-      categoryId: p.category?.id ?? "", images: (p.images ?? []).join(", "), status: "active",
+      categoryId: p.category?.id ?? "", images: (p.images ?? []).join(", "), status: "active", featured: !!p.featured,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -80,6 +80,10 @@ export default function AdminProducts() {
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <input className="input" placeholder="Image URLs, comma-separated" value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} />
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-700">
+          <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />
+          <span>★ Show on homepage (featured)</span>
+        </label>
         <div className="flex gap-2">
           <button className="btn flex-1" type="submit" disabled={busy}>{editing ? "Update" : "Create"}</button>
           {editing && <button type="button" className="btn-outline" onClick={() => { setEditing(null); setForm(emptyForm); }}>Cancel</button>}
@@ -90,7 +94,7 @@ export default function AdminProducts() {
       <div className="card overflow-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
-            <tr>{["Title", "SKU", "Price", "Stock", ""].map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr>
+            <tr>{["Title", "SKU", "Price", "Stock", "★", ""].map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y">
             {products.map((p) => (
@@ -99,6 +103,7 @@ export default function AdminProducts() {
                 <td className="px-4 py-2 text-gray-500">{p.sku}</td>
                 <td className="px-4 py-2">{formatPrice(p.priceCents)}</td>
                 <td className="px-4 py-2">{p.stock}</td>
+                <td className="px-4 py-2 text-amber-500">{p.featured ? "★" : ""}</td>
                 <td className="px-4 py-2 text-right"><button className="text-brand-700 hover:underline" onClick={() => startEdit(p)}>Edit</button></td>
               </tr>
             ))}

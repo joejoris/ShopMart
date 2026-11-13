@@ -20,11 +20,13 @@ import { JwtAuthGuard, RolesGuard } from "../common/guards";
 
 const withImages = (p: any) => {
   if (!p) return p;
+  let parsed: string[] = [];
   try {
-    return { ...p, images: JSON.parse(p.images) };
+    parsed = JSON.parse(p.images);
   } catch {
-    return { ...p, images: [] };
+    parsed = [];
   }
+  return { ...p, images: parsed, featured: !!p.featured };
 };
 
 @ApiTags("products")
@@ -92,11 +94,24 @@ export class ProductsController {
   @Public()
   @Get("featured")
   featured() {
-    const rows = queryAll(
+    // Curated featured picks; backfill with newest active products if fewer than 8 are pinned.
+    const curated = queryAll(
       `SELECT p.*, c.name AS category_name, c.slug AS category_slug
        FROM products p JOIN categories c ON c.id = p.category_id
-       WHERE p.status = 'active' ORDER BY p.created_at DESC LIMIT 8`
+       WHERE p.status = 'active' AND p.featured = 1 ORDER BY p.created_at DESC LIMIT 8`
     );
+    let rows = curated;
+    if (rows.length < 8) {
+      const ids = new Set(rows.map((r: any) => r.id));
+      const need = 8 - rows.length;
+      const backfill = queryAll(
+        `SELECT p.*, c.name AS category_name, c.slug AS category_slug
+         FROM products p JOIN categories c ON c.id = p.category_id
+         WHERE p.status = 'active' ORDER BY p.created_at DESC LIMIT ?`,
+        [need + rows.length]
+      ).filter((r: any) => !ids.has(r.id)).slice(0, need);
+      rows = [...rows, ...backfill];
+    }
     return rows.map((r: any) => ({
       ...withImages(camel(r)),
       category: { id: r.category_id, name: r.category_name, slug: r.category_slug },
@@ -143,14 +158,14 @@ export class ProductsController {
     if (!body.title || !body.slug || !body.sku) throw new BadRequestException("title, slug, sku are required");
     const id = newId();
     execute(
-      `INSERT INTO products (id, title, slug, description, price_cents, compare_at_price_cents, sku, stock, status, images, category_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (id, title, slug, description, price_cents, compare_at_price_cents, sku, stock, status, images, category_id, featured)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, body.title, body.slug, body.description ?? "",
         Number(body.priceCents ?? 0),
         body.compareAtPriceCents != null ? Number(body.compareAtPriceCents) : null,
         body.sku, Number(body.stock ?? 0), body.status ?? "draft",
-        JSON.stringify(body.images ?? []), body.categoryId,
+        JSON.stringify(body.images ?? []), body.categoryId, body.featured ? 1 : 0,
       ]
     );
     return withImages(camel(queryOne(`SELECT * FROM products WHERE id = ?`, [id])));
@@ -172,6 +187,7 @@ export class ProductsController {
       if (body[key] !== undefined) { fields.push(`${col} = ?`); params.push(body[key]); }
     }
     if (body.images !== undefined) { fields.push(`images = ?`); params.push(JSON.stringify(body.images)); }
+    if (body.featured !== undefined) { fields.push(`featured = ?`); params.push(body.featured ? 1 : 0); }
     if (fields.length) {
       fields.push(`updated_at = datetime('now')`);
       execute(`UPDATE products SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
