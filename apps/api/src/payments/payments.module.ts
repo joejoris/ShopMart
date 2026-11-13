@@ -27,23 +27,23 @@ export class PaymentsController {
     this.stripe = key ? new Stripe(key) : null;
   }
 
-  private getOrder(user: any, orderId: string) {
-    const order = queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [orderId]);
+  private async getOrder(user: any, orderId: string) {
+    const order = await queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [orderId]);
     if (!order) throw new NotFoundException("Order not found");
     if (order.user_id !== user.id) throw new BadRequestException("Not your order");
     return order;
   }
 
-  private markPaid(orderId: string) {
-    execute(`UPDATE orders SET status = 'paid', updated_at = datetime('now') WHERE id = ?`, [orderId]);
-    return camel(queryOne(`SELECT * FROM orders WHERE id = ?`, [orderId]));
+  private async markPaid(orderId: string) {
+    await execute(`UPDATE orders SET status = 'paid', updated_at = NOW() WHERE id = ?`, [orderId]);
+    return camel(await queryOne(`SELECT * FROM orders WHERE id = ?`, [orderId]));
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("orders/:id/create-intent")
   async createIntent(@CurrentUser() user: any, @Param("id") orderId: string) {
-    const order = this.getOrder(user, orderId);
+    const order = await this.getOrder(user, orderId);
     if (order.status !== "pending") throw new BadRequestException("Order is not pending payment");
 
     if (!this.stripe) {
@@ -51,21 +51,21 @@ export class PaymentsController {
     }
 
     const intent = await this.stripe.paymentIntents.create({
-      amount: order.total_cents,
+      amount: Number(order.total_cents),
       currency: "usd",
       metadata: { orderId: order.id, orderNumber: order.number },
       automatic_payment_methods: { enabled: true },
     });
-    execute(`UPDATE orders SET stripe_payment_intent_id = ?, updated_at = datetime('now') WHERE id = ?`, [intent.id, order.id]);
-    return { clientSecret: intent.client_secret, orderId: order.id, totalCents: order.total_cents };
+    await execute(`UPDATE orders SET stripe_payment_intent_id = ?, updated_at = NOW() WHERE id = ?`, [intent.id, order.id]);
+    return { clientSecret: intent.client_secret, orderId: order.id, totalCents: Number(order.total_cents) };
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("orders/:id/mock-pay")
-  mockPay(@CurrentUser() user: any, @Param("id") orderId: string) {
+  async mockPay(@CurrentUser() user: any, @Param("id") orderId: string) {
     if (process.env.ALLOW_MOCK_PAYMENTS === "false") throw new BadRequestException("Mock payments disabled");
-    const order = this.getOrder(user, orderId);
+    const order = await this.getOrder(user, orderId);
     if (order.status === "paid") return camel(order);
     if (order.status !== "pending") throw new BadRequestException("Order is not pending payment");
     return this.markPaid(order.id);
@@ -75,7 +75,7 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard)
   @Post("orders/:id/confirm")
   async confirm(@CurrentUser() user: any, @Param("id") orderId: string) {
-    const order = this.getOrder(user, orderId);
+    const order = await this.getOrder(user, orderId);
     if (order.status === "paid") return camel(order);
 
     if (!this.stripe) return this.markPaid(order.id);
@@ -90,7 +90,7 @@ export class PaymentsController {
   @Post("webhook")
   async webhook(@Req() req: RawBodyRequest<any>) {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    const sig = req.headers["stripe-signature"];
+    const sig = req.headers["stripe-signature"] as string | undefined;
     let event: Stripe.Event;
     if (this.stripe && secret && sig) {
       event = this.stripe.webhooks.constructEvent(req.rawBody, sig, secret);
@@ -104,7 +104,7 @@ export class PaymentsController {
       const pi = event.data.object as Stripe.PaymentIntent;
       const orderId = pi.metadata?.orderId;
       if (orderId) {
-        execute(`UPDATE orders SET status = 'paid', updated_at = datetime('now') WHERE id = ?`, [orderId]);
+        await execute(`UPDATE orders SET status = 'paid', updated_at = NOW() WHERE id = ?`, [orderId]);
       }
     }
     return { received: true };

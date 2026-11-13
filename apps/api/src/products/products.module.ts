@@ -34,7 +34,7 @@ const withImages = (p: any) => {
 export class ProductsController {
   @Public()
   @Get()
-  list(
+  async list(
     @Query("q") q?: string,
     @Query("category") category?: string,
     @Query("minPriceCents") minPriceCents?: string,
@@ -68,10 +68,10 @@ export class ProductsController {
       SELECT product_id, SUM(quantity) AS sold FROM order_items GROUP BY product_id
     ) oi ON oi.product_id = p.id WHERE ${where.join(" AND ")}`;
 
-    const totalRow = queryOne<{ n: number }>(`SELECT COUNT(*) AS n ${base}`, params);
-    const total = totalRow?.n ?? 0;
+    const totalRow = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n ${base}`, params);
+    const total = Number(totalRow?.n ?? 0);
 
-    const rows = queryAll(
+    const rows = await queryAll(
       `SELECT p.*, c.name AS category_name, c.slug AS category_slug,
               (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id) AS review_count,
               COALESCE(oi.sold, 0) AS sold
@@ -93,9 +93,9 @@ export class ProductsController {
 
   @Public()
   @Get("featured")
-  featured() {
+  async featured() {
     // Curated featured picks; backfill with newest active products if fewer than 8 are pinned.
-    const curated = queryAll(
+    const curated = await queryAll(
       `SELECT p.*, c.name AS category_name, c.slug AS category_slug
        FROM products p JOIN categories c ON c.id = p.category_id
        WHERE p.status = 'active' AND p.featured = 1 ORDER BY p.created_at DESC LIMIT 8`
@@ -104,11 +104,13 @@ export class ProductsController {
     if (rows.length < 8) {
       const ids = new Set(rows.map((r: any) => r.id));
       const need = 8 - rows.length;
-      const backfill = queryAll(
-        `SELECT p.*, c.name AS category_name, c.slug AS category_slug
-         FROM products p JOIN categories c ON c.id = p.category_id
-         WHERE p.status = 'active' ORDER BY p.created_at DESC LIMIT ?`,
-        [need + rows.length]
+      const backfill = (
+        await queryAll(
+          `SELECT p.*, c.name AS category_name, c.slug AS category_slug
+           FROM products p JOIN categories c ON c.id = p.category_id
+           WHERE p.status = 'active' ORDER BY p.created_at DESC LIMIT ?`,
+          [need + rows.length]
+        )
       ).filter((r: any) => !ids.has(r.id)).slice(0, need);
       rows = [...rows, ...backfill];
     }
@@ -121,23 +123,25 @@ export class ProductsController {
   @Public()
   @Get(":slug")
   async getBySlug(@Param("slug") slug: string) {
-    const r = queryOne(
+    const r = await queryOne(
       `SELECT p.*, c.name AS category_name, c.slug AS category_slug
        FROM products p JOIN categories c ON c.id = p.category_id
        WHERE p.slug = ?`,
       [slug]
     );
     if (!r) throw new NotFoundException("Product not found");
-    const reviews = queryAll(
-      `SELECT r.*, u.name AS user_name FROM reviews r JOIN users u ON u.id = r.user_id
-       WHERE r.product_id = ? ORDER BY r.created_at DESC`,
-      [r.id]
+    const reviews = (
+      await queryAll(
+        `SELECT r.*, u.name AS user_name FROM reviews r JOIN users u ON u.id = r.user_id
+         WHERE r.product_id = ? ORDER BY r.created_at DESC`,
+        [r.id]
+      )
     ).map((rev: any) => ({
       ...camel(rev),
       verifiedPurchase: !!rev.verified_purchase,
       user: { name: rev.user_name },
     }));
-    const agg = queryOne<{ avg_rating: number | null; n: number }>(
+    const agg = await queryOne<{ avg_rating: number | null; n: number }>(
       `SELECT AVG(rating) AS avg_rating, COUNT(*) AS n FROM reviews WHERE product_id = ?`,
       [r.id]
     );
@@ -145,8 +149,8 @@ export class ProductsController {
       ...withImages(camel(r)),
       category: { id: r.category_id, name: (r as any).category_name, slug: (r as any).category_slug },
       reviews,
-      ratingAvg: agg?.avg_rating ?? 0,
-      ratingCount: agg?.n ?? 0,
+      ratingAvg: agg?.avg_rating ? Number(agg.avg_rating) : 0,
+      ratingCount: Number(agg?.n ?? 0),
     };
   }
 
@@ -154,10 +158,10 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   @Post()
-  create(@Body() body: any) {
+  async create(@Body() body: any) {
     if (!body.title || !body.slug || !body.sku) throw new BadRequestException("title, slug, sku are required");
     const id = newId();
-    execute(
+    await execute(
       `INSERT INTO products (id, title, slug, description, price_cents, compare_at_price_cents, sku, stock, status, images, category_id, featured)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -168,14 +172,14 @@ export class ProductsController {
         JSON.stringify(body.images ?? []), body.categoryId, body.featured ? 1 : 0,
       ]
     );
-    return withImages(camel(queryOne(`SELECT * FROM products WHERE id = ?`, [id])));
+    return withImages(camel(await queryOne(`SELECT * FROM products WHERE id = ?`, [id])));
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   @Put(":id")
-  update(@Param("id") id: string, @Body() body: any) {
+  async update(@Param("id") id: string, @Body() body: any) {
     const map: Record<string, string> = {
       title: "title", slug: "slug", description: "description",
       priceCents: "price_cents", compareAtPriceCents: "compare_at_price_cents",
@@ -189,18 +193,17 @@ export class ProductsController {
     if (body.images !== undefined) { fields.push(`images = ?`); params.push(JSON.stringify(body.images)); }
     if (body.featured !== undefined) { fields.push(`featured = ?`); params.push(body.featured ? 1 : 0); }
     if (fields.length) {
-      fields.push(`updated_at = datetime('now')`);
-      execute(`UPDATE products SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
+      await execute(`UPDATE products SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
     }
-    return withImages(camel(queryOne(`SELECT * FROM products WHERE id = ?`, [id])));
+    return withImages(camel(await queryOne(`SELECT * FROM products WHERE id = ?`, [id])));
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   @Delete(":id")
-  remove(@Param("id") id: string) {
-    execute(`UPDATE products SET status = 'archived', updated_at = datetime('now') WHERE id = ?`, [id]);
+  async remove(@Param("id") id: string) {
+    await execute(`UPDATE products SET status = 'archived', updated_at = NOW() WHERE id = ?`, [id]);
     return { ok: true };
   }
 }

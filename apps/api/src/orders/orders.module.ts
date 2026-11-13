@@ -31,7 +31,7 @@ async function notifyAdminLowStock(
   watch: Array<{ id: string; title: string; before: number; after: number }>
 ) {
   if (watch.length === 0) return;
-  const admin = queryOne<{ email: string; name: string }>(`SELECT email, name FROM users WHERE role = 'admin' ORDER BY created_at ASC LIMIT 1`);
+  const admin = await queryOne<{ email: string; name: string }>(`SELECT email, name FROM users WHERE role = 'admin' ORDER BY created_at ASC LIMIT 1`);
   if (!admin) return; // no admin account exists yet — nothing to notify
   const text = `Low-stock alert for ${watch.length} product(s):\n${watch
     .map((w) => `- ${w.title}: ${w.before} → ${w.after}${w.after === 0 ? " (SOLD OUT)" : " (LOW STOCK)"}`)
@@ -72,7 +72,7 @@ export function computeTotals(
 
 const withImages = (p: any) => {
   if (!p) return p;
-  try { return { ...p, images: JSON.parse(p.images) }; } catch { return { ...p, images: [] }; }
+  try { return { ...p, images: JSON.parse(p.images), featured: !!p.featured }; } catch { return { ...p, images: [], featured: !!p.featured }; }
 };
 
 @ApiTags("orders")
@@ -87,16 +87,16 @@ export class OrdersController {
   }
 
   @Post()
-  create(
+  async create(
     @CurrentUser() user: any,
     @Body() body: { addressId: string; couponCode?: string; shippingMethod?: "standard" | "express" }
   ) {
-    const address = queryOne<any>(`SELECT * FROM addresses WHERE id = ?`, [body.addressId]);
+    const address = await queryOne<any>(`SELECT * FROM addresses WHERE id = ?`, [body.addressId]);
     if (!address || address.user_id !== user.id) throw new BadRequestException("Invalid address");
 
-    const cart = queryOne<any>(`SELECT * FROM carts WHERE user_id = ?`, [user.id]);
+    const cart = await queryOne<any>(`SELECT * FROM carts WHERE user_id = ?`, [user.id]);
     const cartItems = cart
-      ? queryAll<any>(
+      ? await queryAll<any>(
           `SELECT ci.*, p.* FROM cart_items ci JOIN products p ON p.id = ci.product_id WHERE ci.cart_id = ?`,
           [cart.id]
         )
@@ -113,9 +113,9 @@ export class OrdersController {
 
     let coupon: any = null;
     if (body.couponCode) {
-      coupon = queryOne(`SELECT * FROM coupons WHERE code = ?`, [body.couponCode.toUpperCase()]);
+      coupon = await queryOne(`SELECT * FROM coupons WHERE code = ?`, [body.couponCode.toUpperCase()]);
       if (!coupon || !coupon.active) throw new BadRequestException("Invalid coupon");
-      if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) throw new BadRequestException("Coupon expired");
+      if (coupon.expires_at && new Date(String(coupon.expires_at)) < new Date()) throw new BadRequestException("Coupon expired");
       if (coupon.usage_limit != null && coupon.used_count >= coupon.usage_limit) throw new BadRequestException("Coupon usage limit reached");
       if (subtotalCents < coupon.min_order_cents) throw new BadRequestException("Order below coupon minimum");
     }
@@ -125,29 +125,29 @@ export class OrdersController {
 
     const stockWatch: Array<{ id: string; title: string; before: number; after: number }> = [];
 
-    const order = transaction(() => {
+    const order = await transaction(async (conn) => {
       const orderId = newId();
       const number = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      execute(
+      await conn.execute(
         `INSERT INTO orders (id, number, user_id, status, subtotal_cents, shipping_cents, tax_cents, discount_cents, total_cents, coupon_code, shipping_method, address)
          VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
         [orderId, number, user.id, subtotalCents, shippingCents, taxCents, discountCents, totalCents, coupon?.code ?? null, shippingMethod, JSON.stringify(camel(address))]
       );
       for (const item of cartItems) {
-        execute(
+        await conn.execute(
           `INSERT INTO order_items (id, order_id, product_id, title, sku, price_cents, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [newId(), orderId, item.product_id, item.title, item.sku, item.price_cents, item.quantity]
         );
-        execute(`UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ?`, [item.quantity, item.product_id]);
-        execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'order')`, [newId(), item.product_id, -item.quantity]);
+        await conn.execute(`UPDATE products SET stock = stock - ? WHERE id = ?`, [item.quantity, item.product_id]);
+        await conn.execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'order')`, [newId(), item.product_id, -item.quantity]);
         const after = item.stock - item.quantity;
         const crossed =
           (item.stock > LOW_STOCK_THRESHOLD && after <= LOW_STOCK_THRESHOLD) ||
           (item.stock > 0 && after === 0);
         if (crossed) stockWatch.push({ id: item.product_id, title: item.title, before: item.stock, after });
       }
-      if (coupon) execute(`UPDATE coupons SET used_count = used_count + 1 WHERE id = ?`, [coupon.id]);
-      execute(`DELETE FROM cart_items WHERE cart_id = ?`, [cart!.id]);
+      if (coupon) await conn.execute(`UPDATE coupons SET used_count = used_count + 1 WHERE id = ?`, [coupon.id]);
+      await conn.execute(`DELETE FROM cart_items WHERE cart_id = ?`, [cart!.id]);
 
       return {
         id: orderId, number, userId: user.id, status: "pending",
@@ -179,32 +179,39 @@ export class OrdersController {
   }
 
   @Get()
-  list(@CurrentUser() user: any) {
-    const orders = camelAll(queryAll(`SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`, [user.id]));
-    return orders.map((o: any) => ({ ...o, items: camelAll(queryAll(`SELECT * FROM order_items WHERE order_id = ?`, [o.id])) }));
+  async list(@CurrentUser() user: any) {
+    const orders = camelAll(await queryAll(`SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`, [user.id]));
+    return Promise.all(
+      orders.map(async (o: any) => ({
+        ...o,
+        items: camelAll(await queryAll(`SELECT * FROM order_items WHERE order_id = ?`, [o.id])),
+      }))
+    );
   }
 
   @Get("admin/all")
   @UseGuards(RolesGuard)
   @Roles("admin")
-  adminList() {
+  async adminList() {
     const orders = camelAll(
-      queryAll(`SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id ORDER BY o.created_at DESC`)
+      await queryAll(`SELECT o.*, u.name AS user_name, u.email AS user_email FROM orders o JOIN users u ON u.id = o.user_id ORDER BY o.created_at DESC`)
     );
-    return orders.map((o: any) => ({
-      ...o,
-      user: { name: o.userName, email: o.userEmail },
-      items: camelAll(queryAll(`SELECT * FROM order_items WHERE order_id = ?`, [o.id])),
-    }));
+    return Promise.all(
+      orders.map(async (o: any) => ({
+        ...o,
+        user: { name: o.userName, email: o.userEmail },
+        items: camelAll(await queryAll(`SELECT * FROM order_items WHERE order_id = ?`, [o.id])),
+      }))
+    );
   }
 
   @Get(":id/invoice")
   async invoice(@CurrentUser() user: any, @Param("id") id: string, @Res() res: Response) {
-    const order = queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
+    const order = await queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
     if (!order) throw new NotFoundException("Order not found");
     if (order.user_id !== user.id && user.role !== "admin") throw new ForbiddenException();
 
-    const items = camelAll(queryAll(`SELECT * FROM order_items WHERE order_id = ?`, [id]));
+    const items = camelAll(await queryAll(`SELECT * FROM order_items WHERE order_id = ?`, [id]));
     let address: any = null;
     try { address = JSON.parse(order.address); } catch {}
 
@@ -291,15 +298,17 @@ export class OrdersController {
   }
 
   @Get(":id")
-  get(@CurrentUser() user: any, @Param("id") id: string) {
-    const order = queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
+  async get(@CurrentUser() user: any, @Param("id") id: string) {
+    const order = await queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
     if (!order) throw new NotFoundException("Order not found");
     if (order.user_id !== user.id && user.role !== "admin") throw new ForbiddenException();
 
-    const items = queryAll<any>(
-      `SELECT oi.*, p.images AS product_images, p.slug AS product_slug, p.description AS product_description
-       FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ?`,
-      [id]
+    const items = (
+      await queryAll<any>(
+        `SELECT oi.*, p.images AS product_images, p.slug AS product_slug, p.description AS product_description
+         FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ?`,
+        [id]
+      )
     ).map((i: any) => ({
       ...camel(i),
       product: {
@@ -315,21 +324,22 @@ export class OrdersController {
   }
 
   @Put(":id/cancel")
-  cancel(@CurrentUser() user: any, @Param("id") id: string) {
-    const order = queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
+  async cancel(@CurrentUser() user: any, @Param("id") id: string) {
+    const order = await queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
     if (!order) throw new NotFoundException();
     if (order.user_id !== user.id && user.role !== "admin") throw new ForbiddenException();
     if (order.status === "shipped" || order.status === "delivered") throw new BadRequestException("Cannot cancel an order already shipped");
     if (order.status === "cancelled") return camel(order);
 
-    const result = transaction(() => {
-      const items = queryAll<any>(`SELECT * FROM order_items WHERE order_id = ?`, [id]);
-      for (const item of items) {
-        execute(`UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?`, [item.quantity, item.product_id]);
-        execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'cancel')`, [newId(), item.product_id, item.quantity]);
+    const result = await transaction(async (conn) => {
+      const items = await conn.query(`SELECT * FROM order_items WHERE order_id = ?`, [id]) as any[];
+      for (const item of items[0]) {
+        await conn.execute(`UPDATE products SET stock = stock + ? WHERE id = ?`, [item.quantity, item.product_id]);
+        await conn.execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'cancel')`, [newId(), item.product_id, item.quantity]);
       }
-      execute(`UPDATE orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?`, [id]);
-      return camel(queryOne(`SELECT * FROM orders WHERE id = ?`, [id]));
+      await conn.execute(`UPDATE orders SET status = 'cancelled' WHERE id = ?`, [id]);
+      const rows = await conn.query(`SELECT * FROM orders WHERE id = ?`, [id]) as any;
+      return camel(rows[0][0]);
     });
     this.email.sendOrderStatus(user.email, order.number, "cancelled").catch((e) => console.error("cancel email failed", e));
     return result;
@@ -338,28 +348,29 @@ export class OrdersController {
   @UseGuards(RolesGuard)
   @Roles("admin")
   @Put(":id/status")
-  adminUpdateStatus(@Param("id") id: string, @Body() body: { status: string }) {
+  async adminUpdateStatus(@Param("id") id: string, @Body() body: { status: string }) {
     const allowed = ["pending", "paid", "shipped", "delivered", "cancelled"];
     if (!allowed.includes(body.status)) throw new BadRequestException("Invalid status");
 
-    const order = queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
+    const order = await queryOne<any>(`SELECT * FROM orders WHERE id = ?`, [id]);
     if (!order) throw new NotFoundException("Order not found");
     if (order.status === "delivered" || order.status === "cancelled") {
       throw new BadRequestException(`Order is already ${order.status} and cannot be changed`);
     }
 
-    const row = queryOne<any>(`SELECT u.email FROM users u WHERE u.id = ?`, [order.user_id]);
-    const updated = transaction(() => {
+    const row = await queryOne<any>(`SELECT u.email FROM users u WHERE u.id = ?`, [order.user_id]);
+    const updated = await transaction(async (conn) => {
       // Admin-initiated cancel restores stock, symmetric with customer cancel.
       if (body.status === "cancelled") {
-        const items = queryAll<any>(`SELECT * FROM order_items WHERE order_id = ?`, [id]);
-        for (const item of items) {
-          execute(`UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?`, [item.quantity, item.product_id]);
-          execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'cancel')`, [newId(), item.product_id, item.quantity]);
+        const items = await conn.query(`SELECT * FROM order_items WHERE order_id = ?`, [id]) as any;
+        for (const item of items[0]) {
+          await conn.execute(`UPDATE products SET stock = stock + ? WHERE id = ?`, [item.quantity, item.product_id]);
+          await conn.execute(`INSERT INTO inventory_logs (id, product_id, delta, reason) VALUES (?, ?, ?, 'cancel')`, [newId(), item.product_id, item.quantity]);
         }
       }
-      execute(`UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?`, [body.status, id]);
-      return camel(queryOne(`SELECT * FROM orders WHERE id = ?`, [id]));
+      await conn.execute(`UPDATE orders SET status = ? WHERE id = ?`, [body.status, id]);
+      const rows = await conn.query(`SELECT * FROM orders WHERE id = ?`, [id]) as any;
+      return camel(rows[0][0]);
     });
     if (row?.email) this.email.sendOrderStatus(row.email, order.number, body.status).catch((e) => console.error("status email failed", e));
     return updated;

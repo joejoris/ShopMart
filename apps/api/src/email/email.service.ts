@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import * as crypto from "node:crypto";
-import { db, queryOne, execute, newId } from "../db/database";
+import { queryOne, execute, newId } from "../db/database";
 import { camel } from "../db/map";
 
 type OrderContext = {
@@ -38,22 +38,22 @@ export class EmailService {
           html: row.body_html,
           text: row.body_text,
         });
-        execute(`UPDATE email_outbox SET status = 'sent' WHERE id = ?`, [row.id]);
+        await execute(`UPDATE email_outbox SET status = 'sent' WHERE id = ?`, [row.id]);
         this.logger.log(`Sent "${row.subject}" to ${row.to_email}`);
       } catch (err: any) {
-        execute(`UPDATE email_outbox SET status = 'failed', error = ? WHERE id = ?`, [String(err?.message ?? err), row.id]);
+        await execute(`UPDATE email_outbox SET status = 'failed', error = ? WHERE id = ?`, [String(err?.message ?? err), row.id]);
         this.logger.error(`Failed to send "${row.subject}" to ${row.to_email}: ${err?.message}`);
       }
       return;
     }
     // Dev console sender: fully functional without an SMTP server.
     this.logger.log(`[email:console] to=${row.to_email} subject="${row.subject}"\n${row.body_text}`);
-    execute(`UPDATE email_outbox SET status = 'sent' WHERE id = ?`, [row.id]);
+    await execute(`UPDATE email_outbox SET status = 'sent' WHERE id = ?`, [row.id]);
   }
 
   async send(to: string, subject: string, html: string, text: string) {
     const id = newId();
-    execute(
+    await execute(
       `INSERT INTO email_outbox (id, to_email, subject, body_html, body_text, status) VALUES (?, ?, ?, ?, ?, 'queued')`,
       [id, to, subject, html, text]
     );
@@ -103,27 +103,27 @@ export class EmailService {
     return this.send(to, `Order ${orderNumber}: ${status}`, this.layout(`Order ${status}`, html), text);
   }
 
-  createToken(userId: string, purpose: "verify" | "reset"): string {
+  async createToken(userId: string, purpose: "verify" | "reset"): Promise<string> {
     const raw = crypto.randomBytes(32).toString("hex");
     const hash = crypto.createHash("sha256").update(raw).digest("hex");
     const hours = purpose === "verify" ? 24 : 1;
-    const expiresAt = new Date(Date.now() + hours * 3600_000).toISOString();
-    execute(
+    const expiresAt = new Date(Date.now() + hours * 3600_000).toISOString().slice(0, 19).replace("T", " ");
+    await execute(
       `INSERT INTO email_tokens (id, user_id, purpose, token_hash, expires_at) VALUES (?, ?, ?, ?, ?)`,
       [newId(), userId, purpose, hash, expiresAt]
     );
     return raw;
   }
 
-  consumeToken(rawToken: string, purpose: "verify" | "reset") {
+  async consumeToken(rawToken: string, purpose: "verify" | "reset") {
     const hash = crypto.createHash("sha256").update(rawToken).digest("hex");
-    const row = queryOne<any>(
+    const row = await queryOne<any>(
       `SELECT * FROM email_tokens WHERE token_hash = ? AND purpose = ? AND used_at IS NULL`,
       [hash, purpose]
     );
     if (!row) return null;
-    if (new Date(row.expires_at) < new Date()) return null;
-    execute(`UPDATE email_tokens SET used_at = datetime('now') WHERE id = ?`, [row.id]);
+    if (new Date(String(row.expires_at)) < new Date()) return null;
+    await execute(`UPDATE email_tokens SET used_at = NOW() WHERE id = ?`, [row.id]);
     return { userId: row.user_id };
   }
 
