@@ -19,8 +19,11 @@ export async function loader({ params }: { params: { slug?: string } }): Promise
   if (!params.slug) return null;
   try {
     return await serverGet<DetailData>(`/products/${params.slug}`);
-  } catch {
-    return null;
+  } catch (e) {
+    // 404 → product doesn't exist → render the not-found page.
+    // Any other failure (API down, 500) → let the route error boundary handle it.
+    if (e instanceof Error && /404/.test(e.message)) return null;
+    throw e;
   }
 }
 

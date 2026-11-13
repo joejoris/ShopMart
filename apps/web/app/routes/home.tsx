@@ -14,16 +14,21 @@ export function meta() {
 
 export async function loader() {
   const [featured, categories] = await Promise.all([
-    serverGet<Product[]>("/products/featured").catch(() => [] as Product[]),
-    serverGet<Category[]>("/categories").catch(() => [] as Category[]),
+    serverGet<Product[]>("/products/featured").catch(() => null),
+    serverGet<Category[]>("/categories").catch(() => null),
   ]);
-  return { featured, categories };
+  return { featured: featured ?? [], categories: categories ?? [], apiOk: featured !== null && categories !== null };
 }
 
-export default function Home({ loaderData }: { loaderData: { featured: Product[]; categories: Category[] } }) {
-  const { featured, categories } = loaderData;
+export default function Home({ loaderData }: { loaderData: { featured: Product[]; categories: Category[]; apiOk: boolean } }) {
+  const { featured, categories, apiOk } = loaderData;
   return (
     <div className="py-6">
+      {!apiOk && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          The store is temporarily unavailable — the product service is unreachable. Please try again shortly.
+        </div>
+      )}
       <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-brand-900 via-brand-700 to-brand-600 px-6 py-14 text-white md:px-14">
         <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">New season</p>
         <h1 className="mt-2 max-w-xl text-4xl font-extrabold leading-tight md:text-5xl">

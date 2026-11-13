@@ -46,10 +46,12 @@ export function ErrorBoundary() {
   const error = useRouteError();
 
   let title = "Something went wrong";
-  let message = "An unexpected error occurred.";
+  let message = "An unexpected error occurred. The API may be unavailable.";
   if (isRouteErrorResponse(error)) {
     title = `${error.status}`;
     message = error.statusText || message;
+  } else if (error instanceof Error && error.message) {
+    message = error.message;
   }
 
   return (

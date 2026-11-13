@@ -19,6 +19,7 @@ export type LoaderData = {
   sort: string | null;
   minPrice: string | null;
   maxPrice: string | null;
+  apiOk: boolean;
 };
 
 export async function loader({ request }: { request: Request }): Promise<LoaderData> {
@@ -39,14 +40,14 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
   if (maxPrice) sp.set("maxPriceCents", String(Math.round(Number(maxPrice) * 100)));
 
   const [products, categories] = await Promise.all([
-    serverGet<ProductList>(`/products?${sp.toString()}`).catch(() => ({ items: [], total: 0, page: 1, pageSize: 12, totalPages: 0 })),
+    serverGet<ProductList>(`/products?${sp.toString()}`).catch(() => null),
     serverGet<Category[]>(`/categories`).catch(() => [] as Category[]),
   ]);
-  return { products, categories, q, category, sort, minPrice, maxPrice };
+  return { products: products ?? { items: [], total: 0, page: 1, pageSize: 12, totalPages: 0 }, categories, q, category, sort, minPrice, maxPrice, apiOk: products !== null };
 }
 
 export default function ProductsPage({ loaderData }: { loaderData: LoaderData }) {
-  const { products, categories, q, category, sort, minPrice, maxPrice } = loaderData;
+  const { products, categories, q, category, sort, minPrice, maxPrice, apiOk } = loaderData;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [min, setMin] = useState(minPrice ?? "");
@@ -72,6 +73,11 @@ export default function ProductsPage({ loaderData }: { loaderData: LoaderData })
 
   return (
     <div className="py-6">
+      {!apiOk && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          The catalog is temporarily unavailable — the product service is unreachable. Please try again shortly.
+        </div>
+      )}
       <h1 className="text-2xl font-bold">{q ? `Results for “${q}”` : category ? `Category: ${category}` : "All products"}</h1>
       <div className="mt-4 grid gap-6 md:grid-cols-[240px_1fr]">
         <aside className="card h-fit space-y-5 p-4 text-sm">
