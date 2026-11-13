@@ -1,4 +1,4 @@
-const API = "http://localhost:4000/api/v1";
+const API = typeof window === "undefined" ? "http://localhost:4000/api/v1" : "/api/v1";
 
 const TOKEN_KEY = "ec_token";
 const REFRESH_KEY = "ec_refresh";

@@ -2,7 +2,8 @@
 
 Monorepo with the web storefront (React Router v7 SSR + Vite), admin dashboard, REST API and mobile app.
 
-## Apps & packages
+**Apache (optional, supported):** XAMPP's Apache can sit in front as reverse proxy — requests to `http://localhost/` serve the web app, `http://localhost/api/v1/…` is proxied to the NestJS API on `:4000`. Both Node processes remain standalone; Apache is just the doorway. Configured at `C:/xampp/apache/conf/extra/httpd-vhosts.conf`.
+
 
 | Path | Description |
 |---|---|
@@ -20,16 +21,21 @@ corepack pnpm install        # or: pnpm install
 # 2. Start XAMPP's MySQL module (Control Panel → MySQL → Start).
 #    This launches MariaDB on port 3306, default user root / no password.
 
-# 3. Seed the catalog into MariaDB (server-side; creates tables if absent)
+# 3. (Optional but recommended) Start XAMPP's Apache module too (Control Panel → Apache → Start).
+#    This exposes the storefront on http://localhost/ WITHOUT remembering port 3000 —
+#    http://localhost/api/v1/* is reverse-proxied to the API on :4000.
+#    Apache config lives at C:/xampp/apache/conf/extra/httpd-vhosts.conf.
+
+# 4. Seed the catalog into MariaDB (server-side; creates tables if absent)
 cd apps/api && corepack pnpm db:seed
 
-# 4. API → http://localhost:4000  (Swagger docs at /docs)
+# 5. API → http://localhost:4000  (Swagger docs at /docs)
 cd apps/api && corepack pnpm dev
 
-# 5. Web → http://localhost:3000
+# 6. Web → http://localhost:3000  (or plain http://localhost/ through Apache)
 cd apps/web && corepack pnpm dev
 
-# 6. Mobile (Expo)
+# 7. Mobile (Expo)
 cd apps/mobile && corepack pnpm start
 ```
 
