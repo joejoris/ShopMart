@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api, Order, formatPrice } from "@/lib/api";
-import { useAuth } from "@/lib/store";
+import { useAuth, useIsHydrated } from "@/lib/store";
 
 export default function OrdersPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const hydrated = useIsHydrated();
   useEffect(() => { if (!user) router.replace("/auth/login?next=/account/orders"); }, [user, router]);
   const { data: orders, isLoading } = useQuery({
     queryKey: ["orders"],
@@ -16,7 +17,7 @@ export default function OrdersPage() {
     enabled: !!user,
   });
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
   return (
     <div className="py-6">
       <h1 className="text-2xl font-bold">My orders</h1>

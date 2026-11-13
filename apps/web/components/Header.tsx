@@ -4,12 +4,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, Cart, clearTokens } from "@/lib/api";
-import { useAuth } from "@/lib/store";
+import { useAuth, useIsHydrated } from "@/lib/store";
 
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const hydrated = useIsHydrated();
   const [q, setQ] = useState("");
   const { data: cart } = useQuery({
     queryKey: ["cart"],
@@ -38,21 +39,25 @@ export function Header() {
           <button className="btn rounded-l-none" aria-label="Search">Search</button>
         </form>
         <nav className="ml-auto flex items-center gap-3 text-sm font-medium">
-          {user?.role === "admin" && (
+          {hydrated && user?.role === "admin" && (
             <Link href="/admin" className="hidden rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100 sm:block">Admin</Link>
           )}
-          {user ? (
-            <>
-              <Link href="/account/orders" className="hidden rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100 sm:block">Orders</Link>
-              <button
-                className="rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100"
-                onClick={() => { clearTokens(); logout(); router.push("/"); }}
-              >
-                Sign out
-              </button>
-            </>
+          {hydrated ? (
+            user ? (
+              <>
+                <Link href="/account/orders" className="hidden rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100 sm:block">Orders</Link>
+                <button
+                  className="rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100"
+                  onClick={() => { clearTokens(); logout(); router.push("/"); }}
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link href="/auth/login" className="rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100">Sign in</Link>
+            )
           ) : (
-            <Link href="/auth/login" className="rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100">Sign in</Link>
+            <span className="inline-block h-6 w-16 animate-pulse rounded-md bg-gray-100 align-middle" aria-hidden="true" />
           )}
           <Link href="/wishlist" className="hidden rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100 sm:block">Wishlist</Link>
           <Link href="/cart" className="relative rounded-md px-2 py-1 text-gray-900 hover:bg-gray-100">

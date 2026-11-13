@@ -3,7 +3,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, downloadFile, Order, formatPrice } from "@/lib/api";
-import { useAuth } from "@/lib/store";
+import { useAuth, useIsHydrated } from "@/lib/store";
 
 const steps = ["pending", "paid", "shipped", "delivered"];
 
@@ -11,6 +11,7 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const hydrated = useIsHydrated();
   const qc = useQueryClient();
   useEffect(() => { if (!user) router.replace(`/auth/login?next=/account/orders/${id}`); }, [user, router, id]);
 
@@ -25,7 +26,7 @@ export default function OrderDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["order", id] }),
   });
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
   if (isLoading || !order) return <p className="py-16 text-center text-gray-500">Loading…</p>;
 
   const stepIndex = steps.indexOf(order.status);

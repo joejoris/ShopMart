@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, Cart, formatPrice } from "@/lib/api";
-import { useAuth } from "@/lib/store";
+import { useAuth, useIsHydrated } from "@/lib/store";
 
 const STRIPE_PK = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
@@ -12,6 +12,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { user } = useAuth();
+  const hydrated = useIsHydrated();
   const [addressId, setAddressId] = useState<string>("");
   const [coupon, setCoupon] = useState("");
   const [couponMsg, setCouponMsg] = useState("");
@@ -121,7 +122,7 @@ export default function CheckoutPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["addresses"] }); setShowNewAddr(false); setNewAddr({ fullName: "", line1: "", city: "", state: "", postalCode: "", country: "US" }); },
   });
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
   if (!cart) return <p className="py-16 text-center text-gray-500">Loading…</p>;
   if (cart.items.length === 0) return (
     <div className="py-16 text-center"><p className="text-gray-500">Your cart is empty.</p><Link href="/products" className="btn mt-4">Shop now</Link></div>

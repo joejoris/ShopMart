@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useAuth } from "@/lib/store";
+import { useAuth, useIsHydrated } from "@/lib/store";
 
 const links = [
   { href: "/admin", label: "Overview" },
@@ -14,6 +14,7 @@ const links = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const hydrated = useIsHydrated();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -22,7 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     else if (user.role !== "admin") router.replace("/");
   }, [user, router]);
 
-  if (!user || user.role !== "admin") return null;
+  if (!hydrated || !user || user.role !== "admin") return null;
 
   return (
     <div className="py-6">

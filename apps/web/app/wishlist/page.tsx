@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { api, Product, formatPrice } from "@/lib/api";
-import { useAuth } from "@/lib/store";
+import { useAuth, useIsHydrated } from "@/lib/store";
 
 export default function WishlistPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const hydrated = useIsHydrated();
   const qc = useQueryClient();
   useEffect(() => { if (!user) router.replace("/auth/login?next=/wishlist"); }, [user, router]);
 
@@ -28,7 +29,7 @@ export default function WishlistPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cart"] }),
   });
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
   return (
     <div className="py-6">
       <h1 className="text-2xl font-bold">My wishlist</h1>

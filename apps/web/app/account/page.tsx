@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/store";
+import { useAuth, useIsHydrated } from "@/lib/store";
 
 export default function AccountPage() {
   const { user } = useAuth();
+  const hydrated = useIsHydrated();
   const router = useRouter();
   const [resent, setResent] = useState(false);
 
@@ -24,7 +25,7 @@ export default function AccountPage() {
     onSuccess: () => setResent(true),
   });
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
 
   return (
     <div className="mx-auto max-w-2xl py-10">
