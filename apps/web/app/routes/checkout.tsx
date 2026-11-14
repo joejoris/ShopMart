@@ -51,7 +51,7 @@ export default function Checkout() {
           line2: inlineAddress.line2 || null,
           city: inlineAddress.city,
           state: inlineAddress.state,
-          postalCode: inlineAddress.postalCode || null,
+          postalCode: inlineAddress.postalCode, // NOT NULL column — empty string is valid
           country: "KE",
           isDefault: addresses.length === 0,
         }

@@ -38,7 +38,7 @@ export class UsersController {
     await execute(
       `INSERT INTO addresses (id, user_id, full_name, line1, line2, city, state, postal_code, country, phone, is_default)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, user.id, body.fullName, body.line1, body.line2 ?? null, body.city, body.state, body.postalCode, body.country ?? "US", body.phone ?? null, body.isDefault ? 1 : 0]
+      [id, user.id, body.fullName, body.line1, body.line2 ?? null, body.city, body.state, body.postalCode ?? "", body.country ?? "US", body.phone ?? null, body.isDefault ? 1 : 0]
     );
     return camel(await queryOne(`SELECT * FROM addresses WHERE id = ?`, [id]));
   }
