@@ -31,17 +31,60 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
-  const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const guest = getGuestId();
-  if (guest) headers["x-guest-id"] = guest;
+let refreshPromise: Promise<string | null> | null = null;
 
-  const res = await fetch(`${API}${path}`, { ...options, headers });
+async function refreshToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const refreshToken = typeof window === "undefined" ? null : localStorage.getItem(REFRESH_KEY);
+      if (!refreshToken) return null;
+      const res = await fetch(`${API}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) {
+        clearTokens();
+        return null;
+      }
+      const body = (await res.json()) as { accessToken: string; refreshToken?: string };
+      setTokens(body.accessToken, body.refreshToken ?? refreshToken);
+      return body.accessToken;
+    } catch {
+      clearTokens();
+      return null;
+    } finally {
+      // Allow future refresh attempts regardless of outcome
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const makeHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const guest = getGuestId();
+    if (guest) headers["x-guest-id"] = guest;
+    return headers;
+  };
+
+  let res = await fetch(`${API}${path}`, { ...options, headers: makeHeaders() });
+
+  // Token expired — try a refresh and retry once.
+  if (res.status === 401 && getToken()) {
+    const newToken = await refreshToken();
+    if (newToken) {
+      res = await fetch(`${API}${path}`, { ...options, headers: makeHeaders() });
+    }
+  }
+
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
@@ -49,6 +92,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       message = body.message ?? body.error ?? message;
       if (Array.isArray(message)) message = message.join(", ");
     } catch {}
+    if (res.status === 401) clearTokens();
     throw new ApiError(res.status, message);
   }
   if (res.status === 204) return undefined as T;
