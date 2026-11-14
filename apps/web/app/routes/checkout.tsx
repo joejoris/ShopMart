@@ -30,6 +30,43 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ simulate?: boolean; message?: string } | null>(null);
+  const [inlineAddress, setInlineAddress] = useState({ fullName: "", phone: "", line1: "", line2: "", city: "", state: "", postalCode: "" });
+  const [inlineBusy, setInlineBusy] = useState(false);
+  const [inlineMsg, setInlineMsg] = useState("");
+
+  const saveInlineAddress = async () => {
+    if (!inlineAddress.fullName || !inlineAddress.phone || !inlineAddress.line1 || !inlineAddress.city || !inlineAddress.state) {
+      setInlineMsg("Full name, phone, estate, city and county are required.");
+      return;
+    }
+    setInlineBusy(true);
+    setInlineMsg("");
+    try {
+      const created = await api.post<{ id: string; fullName: string; line1: string; line2: string | null; city: string; state: string; postalCode: string | null; country: string; phone: string | null }>(
+        "/users/addresses",
+        {
+          fullName: inlineAddress.fullName,
+          phone: inlineAddress.phone,
+          line1: inlineAddress.line1,
+          line2: inlineAddress.line2 || null,
+          city: inlineAddress.city,
+          state: inlineAddress.state,
+          postalCode: inlineAddress.postalCode || null,
+          country: "KE",
+          isDefault: addresses.length === 0,
+        }
+      );
+      setAddresses((prev) => [...prev, created]);
+      setAddressId(created.id);
+      setMpesaPhone((p) => p || created.phone || "");
+      setInlineAddress({ fullName: "", phone: "", line1: "", line2: "", city: "", state: "", postalCode: "" });
+      setInlineMsg("✓ Address saved — ready to check out.");
+    } catch (err: any) {
+      setInlineMsg(err?.message ?? "Could not save address.");
+    } finally {
+      setInlineBusy(false);
+    }
+  };
   const paymentRef = useRef<HTMLDivElement>(null);
   const stripeRef = useRef<any>(null);
   const elementsRef = useRef<any>(null);
@@ -162,7 +199,7 @@ export default function Checkout() {
   }
 
   return (
-    <form className="py-6" onSubmit={placeOrder}>
+    <form className="py-6" onSubmit={placeOrder} noValidate>
       <h1 className="text-2xl font-bold">Checkout</h1>
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
         <div className="space-y-6">
@@ -175,7 +212,28 @@ export default function Checkout() {
                   <span className="text-sm"><strong>{a.fullName}</strong><br />{a.line1}<br />{a.city}, {a.state}{a.postalCode ? ` · P.O. Box ${a.postalCode}` : ""}, Kenya</span>
                 </label>
               ))}
-              {addresses.length === 0 && <p className="text-sm text-gray-500">No addresses yet. <Link to="/account" className="text-brand-700 underline">Add one on your account page</Link>.</p>}
+
+              {addresses.length === 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  <p className="font-semibold">No delivery address on file.</p>
+                  <p className="mt-1">Add one right here to enable checkout.</p>
+                </div>
+              ) : null}
+
+              <details className="rounded-lg border border-gray-200" open={addresses.length === 0}>
+                <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50">+ Add a new delivery address</summary>
+                <div className="grid grid-cols-1 gap-2 border-t border-gray-200 p-3 md:grid-cols-2">
+                  <input className="input md:col-span-2" placeholder="Full name" value={inlineAddress.fullName} onChange={(e) => setInlineAddress({ ...inlineAddress, fullName: e.target.value })} required />
+                  <input className="input" placeholder="Phone (+2547… or 07…)" value={inlineAddress.phone} onChange={(e) => setInlineAddress({ ...inlineAddress, phone: e.target.value })} required pattern="^(\+2547\d{8}|\+2541\d{8}|07\d{8}|01\d{8})$" />
+                  <input className="input md:col-span-2" placeholder="Estate / Street / Apartment" value={inlineAddress.line1} onChange={(e) => setInlineAddress({ ...inlineAddress, line1: e.target.value })} required />
+                  <input className="input" placeholder="City (e.g. Nairobi)" value={inlineAddress.city} onChange={(e) => setInlineAddress({ ...inlineAddress, city: e.target.value })} required />
+                  <input className="input" placeholder="County (e.g. Nairobi)" value={inlineAddress.state} onChange={(e) => setInlineAddress({ ...inlineAddress, state: e.target.value })} required />
+                  <input className="input" placeholder="P.O. Box (optional)" value={inlineAddress.postalCode} onChange={(e) => setInlineAddress({ ...inlineAddress, postalCode: e.target.value })} />
+                  <input className="input" placeholder="Apt / suite (optional)" value={inlineAddress.line2} onChange={(e) => setInlineAddress({ ...inlineAddress, line2: e.target.value })} />
+                  <button type="button" className="btn col-span-1 w-fit text-xs md:col-span-2" onClick={saveInlineAddress} disabled={inlineBusy}>{inlineBusy ? "Saving…" : "Save address"}</button>
+                  {inlineMsg && <p className={`text-xs md:col-span-2 ${inlineMsg.startsWith("✓") ? "text-green-700" : "text-red-600"}`}>{inlineMsg}</p>}
+                </div>
+              </details>
             </div>
           </section>
 
@@ -246,6 +304,12 @@ export default function Checkout() {
               <div ref={paymentRef} className="rounded-md border border-gray-200 p-3" />
               {!stripeReady && <p className="text-xs text-gray-400">Loading secure payment form…</p>}
             </div>
+          )}
+
+          {!addressId && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              ⚠ Select or add a delivery address above to enable checkout.
+            </p>
           )}
 
           <button type="submit" className="btn w-full py-3 text-base" disabled={!addressId || busy || (paymentMethod === "stripe" ? !stripeReady : false)}>
