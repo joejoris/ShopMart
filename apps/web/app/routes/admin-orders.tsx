@@ -31,7 +31,12 @@ export default function AdminOrders() {
   };
 
   return (
-    <div className="card overflow-auto">
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-extrabold text-slate-900">Orders</h1>
+        <p className="text-sm text-slate-500">Every order across the store — advance statuses from the dropdown.</p>
+      </header>
+      <div className="card overflow-auto">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
           <tr>{["Order", "Customer", "Date", "Total", "Status"].map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr>
@@ -53,6 +58,7 @@ export default function AdminOrders() {
           {orders.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">No orders yet.</td></tr>}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

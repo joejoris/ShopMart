@@ -25,11 +25,12 @@ export default function AdminEmails() {
   }
 
   return (
-    <div className="card overflow-auto">
-      <div className="border-b px-4 py-3">
-        <h2 className="font-bold">Email outbox</h2>
-        <p className="text-xs text-gray-500">Transactional emails (order confirmations, status updates, verification, password resets). In dev they are logged to the API console and stored here.</p>
-      </div>
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-extrabold text-slate-900">Email outbox</h1>
+        <p className="text-sm text-slate-500">Transactional emails — confirmations, paid notices, verification, resets. In dev they log to the API console.</p>
+      </header>
+      <div className="card overflow-auto">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
           <tr>{["To", "Subject", "Status", "Sent"].map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr>
@@ -49,6 +50,7 @@ export default function AdminEmails() {
           {emails.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-500">No emails sent yet.</td></tr>}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

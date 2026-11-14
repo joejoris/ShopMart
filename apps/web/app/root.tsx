@@ -3,8 +3,6 @@ import { type RouteObject } from "react-router";
 import type { MetaFunction } from "react-router";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError, isRouteErrorResponse } from "react-router";
 import stylesheet from "./app.css?url";
-import { Header } from "./components/Header";
-import { Footer } from "./components/Footer";
 import { CartProvider } from "./components/CartContext";
 import { SessionExpiredListener } from "./components/SessionExpiredListener";
 
@@ -31,11 +29,7 @@ export default function App() {
       <body>
         <CartProvider>
           <SessionExpiredListener />
-          <Header />
-          <main className="mx-auto max-w-7xl px-4">
-            <Outlet />
-          </main>
-          <Footer />
+          <Outlet />
         </CartProvider>
         <ScrollRestoration />
         <Scripts />

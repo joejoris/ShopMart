@@ -62,7 +62,12 @@ export default function AdminProducts() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-extrabold text-slate-900">Products</h1>
+        <p className="text-sm text-slate-500">Create, edit, feature and retire catalog items.</p>
+      </header>
+      <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
       <form className="card h-fit space-y-2 p-4" onSubmit={submit}>
         <h2 className="font-bold">{editing ? "Edit product" : "New product"}</h2>
         <input className="input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
@@ -109,6 +114,7 @@ export default function AdminProducts() {
             ))}
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );
