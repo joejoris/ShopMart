@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useAuth } from "@/lib/store";
+import { api, getToken } from "@/lib/api";
 
 /**
  * Listens for the `ec:session-expired` event fired by the API client when a
@@ -25,6 +26,25 @@ export function SessionExpiredListener() {
     window.addEventListener("ec:session-expired", onExpired);
     return () => window.removeEventListener("ec:session-expired", onExpired);
   }, [navigate, location]);
+
+  // Sync the persisted session against the server on every app load.
+  // The store persists the user (incl. role) in local/session storage, so
+  // server-side changes — e.g. this account being promoted to admin — only
+  // reach the UI if we re-read them here.
+  useEffect(() => {
+    const store = useAuth.getState();
+    if (!getToken()) {
+      store.setSynced(true);
+      return;
+    }
+    api
+      .get<{ id: string; email: string; name: string; role: string; emailVerified: boolean }>("/auth/me")
+      .then((me) => useAuth.getState().setUser(me))
+      .catch(() => {
+        /* the api client already handles expired/invalid sessions */
+      })
+      .finally(() => useAuth.getState().setSynced(true));
+  }, []);
 
   return null;
 }

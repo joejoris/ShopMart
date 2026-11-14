@@ -19,20 +19,25 @@ export function meta() {
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, synced } = useAuth();
   const hydrated = useIsHydrated();
 
   useEffect(() => {
-    if (hydrated && !user) navigate("/auth/login?next=/admin", { replace: true });
-    else if (hydrated && user && user.role !== "admin") navigate("/", { replace: true });
-  }, [hydrated, user, navigate]);
+    if (!hydrated) return;
+    if (!user) navigate("/auth/login?next=/admin", { replace: true });
+    else if (synced && user.role !== "admin") navigate("/", { replace: true });
+  }, [hydrated, synced, user, navigate]);
 
-  if (!hydrated || !user || user.role !== "admin") {
+  if (!hydrated || !user || !synced) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
         Loading admin…
       </div>
     );
+  }
+
+  if (user.role !== "admin") {
+    return null; // the effect above redirects non-admins to the storefront
   }
 
   const isActive = (href: string) => (href === "/admin" ? location.pathname === "/admin" : location.pathname.startsWith(href));

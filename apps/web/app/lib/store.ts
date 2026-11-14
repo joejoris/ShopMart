@@ -10,6 +10,9 @@ type AuthState = {
   user: AuthUser;
   setUser: (u: AuthUser) => void;
   logout: () => void;
+  /** True once the app has re-validated the persisted session against the server (or knows there is no session). */
+  synced: boolean;
+  setSynced: (v: boolean) => void;
 };
 
 export const useAuth = create<AuthState>()(
@@ -18,9 +21,13 @@ export const useAuth = create<AuthState>()(
       user: null,
       setUser: (user) => set({ user }),
       logout: () => set({ user: null }),
+      synced: false,
+      setSynced: (synced) => set({ synced }),
     }),
     {
       name: "ec-auth",
+      // Only the user profile is persisted — `synced` is runtime-only.
+      partialize: (state) => ({ user: state.user }),
       // Persist into sessionStorage when "Remember me" is unchecked, else localStorage.
       storage: createJSONStorage(() => ({
         getItem: (name) => {
