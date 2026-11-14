@@ -107,6 +107,8 @@ const SCHEMA_STATEMENTS: string[] = [
     shipping_method VARCHAR(20) NOT NULL DEFAULT 'standard',
     address TEXT NOT NULL,
     stripe_payment_intent_id TEXT NULL,
+    mpesa_checkout_request_id VARCHAR(64) NULL,
+    mpesa_receipt VARCHAR(64) NULL,
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id)
@@ -208,6 +210,24 @@ export async function ensureSchema() {
         await bootstrap.query(sql);
       } catch (e: any) {
         if (/already exists/i.test(e.message)) continue;
+        throw e;
+      }
+    }
+    // Phase 2: idempotent column migrations for existing dev databases.
+    await bootstrap.query("USE ecommerce");
+    const migrations: Array<[string, string]> = [
+      ["users", "ADD COLUMN email_verified_at DATETIME NULL"],
+      ["products", "ADD COLUMN featured TINYINT(1) NOT NULL DEFAULT 0"],
+      ["carts", "ADD COLUMN last_reminder_sent_at DATETIME NULL"],
+      ["orders", "ADD COLUMN mpesa_checkout_request_id VARCHAR(64) NULL"],
+      ["orders", "ADD COLUMN mpesa_receipt VARCHAR(64) NULL"],
+    ];
+    for (const [table, clause] of migrations) {
+      try {
+        await bootstrap.query(`ALTER TABLE ${table} ${clause}`);
+      } catch (e: any) {
+        // 1060 = duplicate column name → already migrated; harmless
+        if (e.errno === 1060 && /duplicate column/i.test(e.message)) continue;
         throw e;
       }
     }

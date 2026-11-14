@@ -91,7 +91,7 @@ export default function ProductsPage({ loaderData }: { loaderData: LoaderData })
             </div>
           </div>
           <div>
-            <p className="mb-2 font-semibold">Price (USD)</p>
+            <p className="mb-2 font-semibold">Price (KES)</p>
             <form className="flex items-center gap-2" onSubmit={applyPrice}>
               <input value={min} onChange={(e) => setMin(e.target.value)} placeholder="Min" type="number" className="input w-20" aria-label="Minimum price" />
               <span>–</span>

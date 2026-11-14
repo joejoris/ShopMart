@@ -215,7 +215,7 @@ export class OrdersController {
     let address: any = null;
     try { address = JSON.parse(order.address); } catch {}
 
-    const money = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+    const money = (cents: number) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(cents / 100);
 
     res.set({
       "Content-Type": "application/pdf",
@@ -234,7 +234,7 @@ export class OrdersController {
     // Invoice meta
     doc.fontSize(10).fillColor("#111827");
     doc.text(`Invoice: ${order.number}`);
-    doc.text(`Date: ${new Date(order.created_at).toLocaleString("en-US")}`);
+    doc.text(`Date: ${new Date(order.created_at).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" })}`);
     doc.text(`Status: ${String(order.status).toUpperCase()}`);
     doc.text(`Order method: ${order.shipping_method}`);
     doc.moveDown();

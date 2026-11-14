@@ -14,6 +14,7 @@ import { ReviewsModule } from "./reviews/reviews.module";
 import { CouponsModule } from "./coupons/coupons.module";
 import { AdminModule } from "./admin/admin.module";
 import { OperationsModule } from "./operations/operations.module";
+import { MpesaModule } from "./mpesa/mpesa.module";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { OperationsModule } from "./operations/operations.module";
     CouponsModule,
     AdminModule,
     OperationsModule,
+    MpesaModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

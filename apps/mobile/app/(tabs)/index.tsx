@@ -29,7 +29,7 @@ export default function HomeScreen() {
       columnWrapperStyle={styles.row}
       ListHeaderComponent={
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>Everything you love, delivered fast.</Text>
+          <Text style={styles.heroTitle}>Nairobi next-day, Kenya-wide delivery.</Text>
           <Text style={styles.heroSub}>Free shipping over $50 · 30-day returns</Text>
         </View>
       }

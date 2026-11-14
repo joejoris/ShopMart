@@ -13,8 +13,8 @@ export const links = () => [
 
 export function meta() {
   return [
-    { title: "ShopMart — Online Store" },
-    { name: "description", content: "A full-stack ecommerce storefront." },
+    { title: "ShopMart Kenya — Online Store" },
+    { name: "description", content: "Kenya's online store. Electronics, fashion, home essentials, books and sports — delivered countrywide." },
   ];
 }
 

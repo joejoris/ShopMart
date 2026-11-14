@@ -87,7 +87,7 @@ export async function downloadFile(path: string, filename: string) {
 }
 
 export const formatPrice = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+  new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(cents / 100);
 
 export type Product = {
   id: string;

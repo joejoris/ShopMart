@@ -52,7 +52,7 @@ export class PaymentsController {
 
     const intent = await this.stripe.paymentIntents.create({
       amount: Number(order.total_cents),
-      currency: "usd",
+      currency: "kes",
       metadata: { orderId: order.id, orderNumber: order.number },
       automatic_payment_methods: { enabled: true },
     });

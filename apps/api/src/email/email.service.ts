@@ -22,7 +22,7 @@ export class EmailService {
   }
 
   private formatPrice(cents: number) {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+    return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(cents / 100);
   }
 
   private async deliver(row: { id: string; to_email: string; subject: string; body_html: string; body_text: string }) {

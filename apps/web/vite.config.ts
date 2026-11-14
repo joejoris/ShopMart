@@ -7,7 +7,15 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [reactRouter()],
-  server: { port: 3000 },
+  server: {
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./app"),

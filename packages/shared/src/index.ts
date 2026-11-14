@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-export const SHIPPING_FLAT_CENTS = 499; // $4.99
-export const FREE_SHIPPING_THRESHOLD_CENTS = 5000; // $50
-export const TAX_RATE = 0.08; // 8%
+export const SHIPPING_FLAT_CENTS = 20000; // KES 200
+export const FREE_SHIPPING_THRESHOLD_CENTS = 500000; // KES 5,000
+export const TAX_RATE = 0.16; // Kenya VAT 16%
+export const KES_PER_USD = 130; // for seed conversion convenience (approx)
 
 export const RegisterSchema = z.object({
   name: z.string().min(1).max(120),
@@ -22,10 +23,10 @@ export const AddressSchema = z.object({
   line1: z.string().min(1).max(200),
   line2: z.string().max(200).optional().nullable(),
   city: z.string().min(1).max(120),
-  state: z.string().min(1).max(120),
-  postalCode: z.string().min(1).max(20),
-  country: z.string().min(1).max(2).default("US"),
-  phone: z.string().max(40).optional().nullable(),
+  county: z.string().min(1).max(120),
+  postalCode: z.string().max(20).optional().nullable(),
+  country: z.string().min(1).max(2).default("KE"),
+  phone: z.string().regex(/^(\+2547\d{8}|\+2541\d{8}|07\d{8}|01\d{8})$/, "Enter a valid Kenyan phone (e.g. +254712345678 or 0712345678)").optional().nullable(),
 });
 export type AddressInput = z.infer<typeof AddressSchema>;
 

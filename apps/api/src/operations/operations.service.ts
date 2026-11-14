@@ -6,7 +6,7 @@ import { EmailService } from "../email/email.service";
 const STUCK_ORDER_SUBJECT = "Stuck orders digest";
 
 const formatCents = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+  new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(cents / 100);
 
 @Injectable()
 export class OperationsService {

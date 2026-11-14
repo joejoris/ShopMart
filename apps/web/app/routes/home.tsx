@@ -7,8 +7,8 @@ type Category = { id: string; name: string; slug: string; imageUrl: string | nul
 
 export function meta() {
   return [
-    { title: "ShopMart — Online Store" },
-    { name: "description", content: "Electronics, clothing, home & kitchen, books, and sports — delivered fast. Free shipping over $50." },
+    { title: "ShopMart Kenya — Online Store" },
+    { name: "description", content: "Electronics, fashion, home & kitchen, books, and sports — delivered across Kenya. Nairobi next-day, countrywide 2-4 days." },
   ];
 }
 
@@ -32,10 +32,10 @@ export default function Home({ loaderData }: { loaderData: { featured: Product[]
       <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-brand-900 via-brand-700 to-brand-600 px-6 py-14 text-white md:px-14">
         <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">New season</p>
         <h1 className="mt-2 max-w-xl text-4xl font-extrabold leading-tight md:text-5xl">
-          Everything you love, delivered fast.
+          Delivering across Kenya, fast.
         </h1>
         <p className="mt-4 max-w-md text-blue-100">
-          Electronics, clothing, home essentials and more — with free shipping over $50.
+          Electronics, fashion, home essentials and more — free delivery to Nairobi, Mombasa, Kisumu and beyond.
         </p>
         <div className="mt-6 flex gap-3">
           <Link to="/products" className="btn bg-white text-brand-900 hover:bg-blue-50">Shop now</Link>
