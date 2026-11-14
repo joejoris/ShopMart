@@ -15,6 +15,7 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +25,7 @@ export default function Register() {
     setError("");
     try {
       const res = await api.post<{ accessToken: string; refreshToken: string; user: any }>("/auth/register", { name, email, password });
-      setTokens(res.accessToken, res.refreshToken);
+      setTokens(res.accessToken, res.refreshToken, remember);
       setUser(res.user);
       await refresh();
       navigate("/");
@@ -44,6 +45,10 @@ export default function Register() {
           <input className="input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required aria-label="Email" />
           <input className="input" type="password" placeholder="Password (min 8 characters)" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required aria-label="Password" />
           {error && <p className="text-sm text-red-600">{error}</p>}
+          <label className="flex cursor-pointer select-none items-center gap-2 pt-1 text-sm text-gray-700">
+            <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={remember} onChange={(e) => setRemember(e.target.checked)} aria-label="Remember me" />
+            Remember me <span className="text-gray-400">(keep me signed in on this device)</span>
+          </label>
           <button type="submit" className="btn w-full" disabled={busy}>{busy ? "Creating…" : "Register"}</button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-500">Already have an account? <Link to="/auth/login" className="text-brand-700 hover:underline">Sign in</Link></p>

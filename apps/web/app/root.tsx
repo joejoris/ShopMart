@@ -6,6 +6,7 @@ import stylesheet from "./app.css?url";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { CartProvider } from "./components/CartContext";
+import { SessionExpiredListener } from "./components/SessionExpiredListener";
 
 export const links = () => [
   { rel: "stylesheet", href: stylesheet },
@@ -29,6 +30,7 @@ export default function App() {
       </head>
       <body>
         <CartProvider>
+          <SessionExpiredListener />
           <Header />
           <main className="mx-auto max-w-7xl px-4">
             <Outlet />

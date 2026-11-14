@@ -2,18 +2,67 @@ const API = typeof window === "undefined" ? "http://localhost:4000/api/v1" : "/a
 
 const TOKEN_KEY = "ec_token";
 const REFRESH_KEY = "ec_refresh";
+const REMEMBER_KEY = "ec_remember";
+
+/** Where tokens/auth live right now. "0" = this tab only (sessionStorage). */
+export function isRememberMe() {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(REMEMBER_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+export function rememberStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return isRememberMe() ? localStorage : sessionStorage;
+  } catch {
+    return localStorage;
+  }
+}
+export function setRemember(remember: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
 
 export function getToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  const s = rememberStorage();
+  return s ? s.getItem(TOKEN_KEY) : null;
 }
-export function setTokens(access: string, refresh: string) {
-  localStorage.setItem(TOKEN_KEY, access);
-  localStorage.setItem(REFRESH_KEY, refresh);
+export function setTokens(access: string, refresh: string, remember = true) {
+  setRemember(remember);
+  if (typeof window === "undefined") return;
+  const store = remember ? localStorage : sessionStorage;
+  try {
+    // Write to the chosen store and purge the other so stale copies can't leak.
+    if (remember) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(REFRESH_KEY);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+    }
+    store.setItem(TOKEN_KEY, access);
+    store.setItem(REFRESH_KEY, refresh);
+  } catch {
+    /* storage full — keep in memory only */
+  }
 }
 export function clearTokens() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_KEY);
+  if (typeof window === "undefined") return;
+  try {
+    for (const s of [localStorage, sessionStorage]) {
+      s.removeItem(TOKEN_KEY);
+      s.removeItem(REFRESH_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 export function getGuestId() {
   if (typeof window === "undefined") return undefined;
@@ -37,7 +86,7 @@ async function refreshToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {
-      const refreshToken = typeof window === "undefined" ? null : localStorage.getItem(REFRESH_KEY);
+      const refreshToken = typeof window === "undefined" ? null : rememberStorage()?.getItem(REFRESH_KEY);
       if (!refreshToken) return null;
       const res = await fetch(`${API}/auth/refresh`, {
         method: "POST",
@@ -49,7 +98,7 @@ async function refreshToken(): Promise<string | null> {
         return null;
       }
       const body = (await res.json()) as { accessToken: string; refreshToken?: string };
-      setTokens(body.accessToken, body.refreshToken ?? refreshToken);
+      setTokens(body.accessToken, body.refreshToken ?? refreshToken, isRememberMe());
       return body.accessToken;
     } catch {
       clearTokens();
@@ -78,7 +127,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res = await fetch(`${API}${path}`, { ...options, headers: makeHeaders() });
 
   // Token expired — try a refresh and retry once.
-  if (res.status === 401 && getToken()) {
+  if (res.status === 401 && getToken() && !path.startsWith("/auth/")) {
     const newToken = await refreshToken();
     if (newToken) {
       res = await fetch(`${API}${path}`, { ...options, headers: makeHeaders() });
@@ -92,7 +141,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       message = body.message ?? body.error ?? message;
       if (Array.isArray(message)) message = message.join(", ");
     } catch {}
-    if (res.status === 401) clearTokens();
+    if (res.status === 401 && !path.startsWith("/auth/")) {
+      clearTokens();
+      try {
+        localStorage.removeItem("ec-auth");
+        sessionStorage.removeItem("ec-auth");
+      } catch {}
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ec:session-expired"));
+        message = "Your session expired. Please sign in again.";
+      }
+    }
     throw new ApiError(res.status, message);
   }
   if (res.status === 204) return undefined as T;
