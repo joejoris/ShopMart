@@ -19,12 +19,5 @@ export default [
     route("wishlist", "./routes/wishlist.tsx"),
     route("*", "./routes/not-found.tsx"),
   ]),
-  route("admin", "./routes/admin.tsx", [
-    index("./routes/admin-overview.tsx"),
-    route("users", "./routes/admin-users.tsx"),
-    route("products", "./routes/admin-products.tsx"),
-    route("orders", "./routes/admin-orders.tsx"),
-    route("coupons", "./routes/admin-coupons.tsx"),
-    route("emails", "./routes/admin-emails.tsx"),
-  ]),
+  route("admin", "./routes/admin-moved.tsx"),
 ] satisfies RouteConfig;

@@ -42,7 +42,7 @@ export function Header() {
         </form>
         <nav className="ml-auto flex items-center gap-3 text-sm font-medium">
           {hydrated && user?.role === "admin" && (
-            <Link to="/admin" className="hidden rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100 sm:block">Admin</Link>
+            <a href="http://localhost:3001/" rel="noreferrer" className="hidden rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100 sm:block">Admin console ↗</a>
           )}
           {hydrated ? (
             user ? (
