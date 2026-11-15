@@ -24,3 +24,6 @@ uploads/
 backups/
 .logs/
 .mariadb.log
+
+# Netlify build artifacts
+.netlify/
