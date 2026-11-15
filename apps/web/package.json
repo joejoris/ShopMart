@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ecommerce/shared": "workspace:*",
+    "@netlify/vite-plugin-react-router": "^4.0.0",
     "@react-router/node": "7.18.5",
     "isbot": "^5.1.23",
     "react": "19.3.1",

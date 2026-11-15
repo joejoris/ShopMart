@@ -132,3 +132,19 @@ Admin-only API endpoints (`GET /admin/*`) reject customers with 403 and anonymou
 corepack pnpm typecheck
 corepack pnpm lint
 ```
+
+## Deployment
+
+**Netlify** (storefront SSR): the repo ships a root `netlify.toml`
+(`pnpm install --frozen-lockfile && pnpm exec turbo run build --filter=@ecommerce/web`,
+publish `apps/web/build/client`, Node 24). In Netlify:
+1. Add new site → Import `joejoris/ShopMart`
+2. Build auto-detects from `netlify.toml` (`@netlify/vite-plugin-react-router` is pre-installed)
+3. The API is NOT deployed to Netlify — set `CORS_ORIGINS` on the API host to the Netlify origin, or run everything on one VPS (below)
+
+**Single VPS (everything on one box)**: see `infra/DEPLOY.md` — full runbook
+(Ubuntu 24.04, nginx vhosts for storefront/API/admin, systemd units, MariaDB,
+nightly backups, certbot HTTPS). `infra/setup-ubuntu.sh` performs the system setup.
+
+**Admin console**: separate repo — https://github.com/joejoris/ShopMart-Admin
+(static SPA on Netlify via its own `netlify.toml`, or `vite build --base=/admin/` served by nginx).

@@ -1,0 +1,11 @@
+# Netlify build config for the ShopMart storefront SSR app (apps/web).
+# The repo is a pnpm monorepo, so the build runs from the root so
+# workspace dependencies (@ecommerce/shared) resolve.
+# The admin console lives in the separate repo: github.com/joejoris/ShopMart-Admin
+
+[build]
+  command = "pnpm install --frozen-lockfile && pnpm exec turbo run build --filter=@ecommerce/web"
+  publish = "apps/web/build/client"
+
+[build.environment]
+  NODE_VERSION = "24"

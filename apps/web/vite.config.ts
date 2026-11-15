@@ -1,12 +1,13 @@
 import path from "node:path";
 import * as url from "node:url";
 import { reactRouter } from "@react-router/dev/vite";
+import netlifyReactRouter from "@netlify/vite-plugin-react-router";
 import { defineConfig } from "vite";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [reactRouter()],
+  plugins: [reactRouter(), netlifyReactRouter()],
   server: {
     port: 3000,
     // Browser connects to the Vite HMR socket directly — going through Apache's

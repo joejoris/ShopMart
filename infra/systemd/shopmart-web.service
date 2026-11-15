@@ -1,0 +1,21 @@
+[Unit]
+Description=ShopMart Kenya — React Router SSR web app (:3000)
+After=network.target shopmart-api.service
+Wants=shopmart-api.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/shopmart/apps/web
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/node node_modules/.bin/react-router-serve ./build/server/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
