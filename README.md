@@ -9,7 +9,7 @@ Monorepo with the web storefront (React Router v7 SSR + Vite), admin dashboard, 
 |---|---|
 | `apps/api` | NestJS REST API + XAMPP MariaDB (MySQL) on `127.0.0.1:3306` — schema auto-applied on boot |
 | `apps/web` | React Router v7 SSR + Vite + Tailwind — the customer storefront (no admin pages) |
-| `apps/admin` | **Standalone admin console** — separate Vite + React app on `http://localhost:3001`, admin-only, own login |
+| `apps/admin` | **Moved** — the admin console now lives in its own repository: https://github.com/joejoris/ShopMart-Admin (cloned at `C:\projects\shopmart-admin`) |
 | `apps/mobile` | Expo / React Native app (`expo start`) |
 | `packages/shared` | Shared Zod schemas, types and constants |
 
@@ -42,10 +42,9 @@ cd apps/api && corepack pnpm dev
 # 6. Web → http://localhost:3000  (or plain http://localhost/ through Apache)
 cd apps/web && corepack pnpm dev
 
-# 6b. Admin console → http://localhost:3001  (separate app, admin-only)
-cd apps/admin && node node_modules/vite/bin/vite.js
-# (apps/admin/node_modules is a junction to apps/web's store; run a normal
-#  `corepack pnpm install` when the registry is reachable to replace it)
+# 6b. Admin console → http://localhost:3001  (SEPARATE repo: joejoris/ShopMart-Admin)
+cd C:\projects\shopmart-admin && node node_modules/vite/bin/vite.js
+# or just run scripts\start-shopmart.bat which launches everything incl. the console
 
 # 6c. Database backup (all tables) → backups\ecommerce-<timestamp>.sql
 scripts\backup-db.bat
@@ -90,7 +89,7 @@ mysql.createConnection('mysql://root@localhost:3306/ecommerce')
 "
 ```
 
-**Admin access** lives in the separate console at `http://localhost:3001` — its own login, role-gated (non-admin accounts see an access-denied screen). The ShopMart storefront exposes no admin UI.
+**Admin access** lives in the separate console repo at `http://localhost:3001` — see [ShopMart-Admin](https://github.com/joejoris/ShopMart-Admin). Its own login, role-gated (non-admin accounts see an access-denied screen). The ShopMart storefront exposes no admin UI.
 
 Admin-only API endpoints (`GET /admin/*`) reject customers with 403 and anonymous callers with 401.
 

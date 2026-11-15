@@ -35,12 +35,12 @@ netstat -ano | findstr ":3000" | findstr "LISTENING" >nul && (
   timeout /t 10 /nobreak >nul
 )
 
-REM --- 4. Standalone admin console ---
+REM --- 4. Standalone admin console (separate repo: joejoris/ShopMart-Admin) ---
 netstat -ano | findstr ":3001" | findstr "LISTENING" >nul && (
   echo [4/5] Admin console already running
 ) || (
   echo [4/5] Starting admin console on :3001...
-  start "ShopMart-Admin" /MIN /D "%ROOT%\apps\admin" node node_modules/vite/bin/vite.js > "%LOGDIR%\admin.log" 2>&1
+  start "ShopMart-Admin" /MIN /D "C:\projects\shopmart-admin" node node_modules/vite/bin/vite.js > "%LOGDIR%\admin.log" 2>&1
   timeout /t 6 /nobreak >nul
 )
 
