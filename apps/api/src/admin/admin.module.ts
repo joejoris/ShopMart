@@ -63,6 +63,25 @@ export class AdminController {
     );
   }
 
+  // Products sold: every catalog product with units sold + revenue (paid orders),
+  // sorted best-sellers first. Includes never-sold products with zeros so the
+  // admin can see the full picture.
+  @Get("sales-report")
+  async salesReport() {
+    return camelAll(
+      await queryAll(`
+        SELECT p.id, p.title, p.sku, p.slug, p.stock, p.status AS product_status,
+               COALESCE(SUM(CASE WHEN o.status IN ('paid','shipped','delivered') THEN oi.quantity ELSE 0 END), 0) AS units_sold,
+               COALESCE(SUM(CASE WHEN o.status IN ('paid','shipped','delivered') THEN oi.quantity * oi.price_cents ELSE 0 END), 0) AS revenue_cents
+        FROM products p
+        LEFT JOIN order_items oi ON oi.product_id = p.id
+        LEFT JOIN orders o ON o.id = oi.order_id
+        GROUP BY p.id, p.title, p.sku, p.slug, p.stock, p.status
+        ORDER BY units_sold DESC, revenue_cents DESC, p.title ASC
+      `)
+    );
+  }
+
   @Get("emails")
   async emails() {
     return camelAll(
@@ -70,12 +89,17 @@ export class AdminController {
     );
   }
 
+  // Every account with lifetime order count and total spent (paid orders only).
   @Get("users")
   async users() {
     return camelAll(
       await queryAll(
-        `SELECT u.id, u.name, u.email, u.role, u.created_at, COUNT(o.id) AS order_count
-         FROM users u LEFT JOIN orders o ON o.user_id = u.id
+        `SELECT u.id, u.name, u.email, u.role, u.created_at,
+                COUNT(DISTINCT o.id) AS order_count,
+                COALESCE(SUM(CASE WHEN o.status IN ('paid','shipped','delivered') THEN oi.quantity * oi.price_cents ELSE 0 END), 0) AS spent_cents
+         FROM users u
+         LEFT JOIN orders o ON o.user_id = u.id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
          GROUP BY u.id ORDER BY u.created_at DESC`
       )
     );

@@ -8,6 +8,7 @@ type AdminUser = {
   role: string;
   createdAt: string;
   orderCount: string | number;
+  spentCents: string | number;
 };
 
 export function meta() {
@@ -49,12 +50,13 @@ export default function AdminUsers() {
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3 text-right">Orders</th>
+              <th className="px-4 py-3 text-right">Total spent</th>
               <th className="px-4 py-3">Joined</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {(users ?? []).length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-slate-400">{users ? "No customers yet." : "Loading…"}</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-400">{users ? "No customers yet." : "Loading…"}</td></tr>
             )}
             {filtered.map((u) => (
               <tr key={u.id} className="hover:bg-slate-50">
@@ -68,6 +70,7 @@ export default function AdminUsers() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right font-semibold tabular-nums">{u.orderCount ?? 0}</td>
+                <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatPrice(Number(u.spentCents ?? 0))}</td>
                 <td className="px-4 py-3 text-slate-500">{new Date(u.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" })}</td>
               </tr>
             ))}
