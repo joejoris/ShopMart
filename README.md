@@ -8,7 +8,8 @@ Monorepo with the web storefront (React Router v7 SSR + Vite), admin dashboard, 
 | Path | Description |
 |---|---|
 | `apps/api` | NestJS REST API + XAMPP MariaDB (MySQL) on `127.0.0.1:3306` — schema auto-applied on boot |
-| `apps/web` | React Router v7 SSR + Vite + Tailwind — storefront + admin at `/admin` |
+| `apps/web` | React Router v7 SSR + Vite + Tailwind — the customer storefront (no admin pages) |
+| `apps/admin` | **Standalone admin console** — separate Vite + React app on `http://localhost:3001`, admin-only, own login |
 | `apps/mobile` | Expo / React Native app (`expo start`) |
 | `packages/shared` | Shared Zod schemas, types and constants |
 
@@ -20,6 +21,12 @@ corepack pnpm install        # or: pnpm install
 
 # 2. Start XAMPP's MySQL module (Control Panel → MySQL → Start).
 #    This launches MariaDB on port 3306, default user root / no password.
+#
+#    ...or simply run the all-in-one starter (safe to re-run; starts only
+#    what's missing):
+#        scripts\start-shopmart.bat
+#    It launches MariaDB → API → web → admin console → Apache, and leaves
+#    the rest alone. Logs land in .logs\.
 
 # 3. (Optional but recommended) Start XAMPP's Apache module too (Control Panel → Apache → Start).
 #    This exposes the storefront on http://localhost/ WITHOUT remembering port 3000 —
@@ -34,6 +41,15 @@ cd apps/api && corepack pnpm dev
 
 # 6. Web → http://localhost:3000  (or plain http://localhost/ through Apache)
 cd apps/web && corepack pnpm dev
+
+# 6b. Admin console → http://localhost:3001  (separate app, admin-only)
+cd apps/admin && node node_modules/vite/bin/vite.js
+# (apps/admin/node_modules is a junction to apps/web's store; run a normal
+#  `corepack pnpm install` when the registry is reachable to replace it)
+
+# 6c. Database backup (all tables) → backups\ecommerce-<timestamp>.sql
+scripts\backup-db.bat
+# backups are gitignored — they contain personal data. Keeps the 14 most recent.
 
 # 7. Mobile (Expo)
 cd apps/mobile && corepack pnpm start
@@ -74,7 +90,9 @@ mysql.createConnection('mysql://root@localhost:3306/ecommerce')
 "
 ```
 
-Admin-only routes (`/admin`, `GET /admin/*`) reject customers with 403 and anonymous callers with 401.
+**Admin access** lives in the separate console at `http://localhost:3001` — its own login, role-gated (non-admin accounts see an access-denied screen). The ShopMart storefront exposes no admin UI.
+
+Admin-only API endpoints (`GET /admin/*`) reject customers with 403 and anonymous callers with 401.
 
 ## Demo coupons
 

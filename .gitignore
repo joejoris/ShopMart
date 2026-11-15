@@ -19,3 +19,8 @@ uploads/
 *.db-wal
 *.tsbuildinfo
 .next/
+
+# Local runtime artifacts & database backups (may contain personal data)
+backups/
+.logs/
+.mariadb.log
